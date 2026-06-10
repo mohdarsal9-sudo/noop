@@ -17,6 +17,42 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 1.62 — WHOOP 5/MG history: the missing clock (thanks tajchert, #78)
+
+Reimplemented (per our external-contribution policy) from **tajchert's hardware-validated fork branch**
+(`whoop5-android-history-sync`), reviewed by a 29-agent adversarial workflow against our v1.61: 25
+recommendations verified → 9 adopted, 26 already-superseded, 1 rejected (his CCCD reordering would have
+killed standard-0x2A37 live HR).
+
+- **THE unblock — clock before history (Mac + Android):** an un-clocked WHOOP 5 does NOT save sensor
+  data to flash (firmware console: "RTC timestamp … is invalid; not saving data to flash"), so offloads
+  "succeeded" with metadata only. NOOP now sends SET_CLOCK/GET_CLOCK (WHOOP4's 8-byte payload over
+  puffin framing — strap-acked on hardware) after the puffin CCCD drain, before SEND_HISTORICAL_DATA.
+  His hardware: 0 → 246 HISTORICAL_DATA frames. Android relocates the post-bond kick to the CCCD-drain
+  completion; macOS clocks inside the once-per-connection `whoop5SessionStarted` gate.
+- **GET_DATA_RANGE gating, fail-OPEN (Android):** query the stored range first, fire the transfer on
+  SUCCESS (result codes 0–3 now decoded; PENDING precedes SUCCESS), 2s fallback because real hardware
+  sometimes swallows the first query; one zero-frame retry per connection. Family-aware response offset
+  (cmd@10 on 5/MG vs @6 — `strapNewestTs` never updated from 5/MG replies before).
+- **5/MG decoders (Android parity + new):** COMMAND_RESPONSE (resp_cmd@10/seq@11/result@12),
+  EVENT (+4, payload preserved as hex; BATTERY_LEVEL fields mirrored from Swift), CONSOLE_LOGS
+  (UTF-8 @21, 2KB cap) — the strap's console now lands in the strap log ("strap: BLE: PullStats…").
+- **Opt-in 5/MG raw capture (Android, default OFF):** `BackfillCaptureJsonl/Summary` (adopted verbatim —
+  pure, tested) + append/rotate writer (40k lines/10MB; his truncate-per-session lost overnight data) +
+  Settings toggle + consent-headed share sheet. This is the crowdsourcing pipeline for the puffin
+  biometric decode (his captures show bulk type-54 = PUFFIN_EVENTS_FROM_STRAP per our PROTOCOL.md, still
+  unclassified payload-wise).
+- **Post-commit scoring (Android):** a committed backfill chunk schedules a debounced (1.5s)
+  `IntelligenceEngine.analyzeRecent` + HC-writeback — fresh history scores in seconds, and scores at all
+  in background-only operation (the 15-min loop lives in the Activity-scoped ViewModel).
+- **Direct-connect to the OS-bonded 5/MG (Android):** skips the scan (hardware showed first protected
+  GATT op failing status=133 on scan-reconnects); stale bonds fall back to a scan via handleDisconnect.
+- **isOffloadFrame accepts type 52** (HISTORICAL_IMU_DATA_STREAM) for 5/MG. His EVENT/CONSOLE_LOGS
+  progress-counting *removal* is NOT adopted — needs hardware validation (watchdog semantics).
+- **Tests:** 4 real-hardware vectors (CRC-pinned Goose command frames, event 0x1D, console text,
+  ACK-capture v18 frame: HR 66 / skin 32.38°C / |g|≈1) + capture encoder/summary suites — all green.
+- Model selection now survives restarts even with background connection off.
+
 ## 1.61 — Android: the widget now actually updates (#82, second find)
 
 - **Fixed: widget starvation under live HR.** The reporter's follow-up symptoms (live HR fine in-app,

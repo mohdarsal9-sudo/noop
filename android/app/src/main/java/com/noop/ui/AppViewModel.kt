@@ -193,9 +193,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * BLE client itself no-ops if already connected or the runtime permission isn't granted yet.
      */
     private fun autoReconnectOnLaunch() {
-        if (!NoopPrefs.backgroundConnection(appContext)) return
         val saved = NoopPrefs.lastDevice(appContext) ?: return
+        // Restore the model selection whenever a strap is remembered — deliberately NOT gated on the
+        // background-connection pref, so an opted-out 5/MG user's picker and scan family still
+        // survive restarts. Only the reconnect itself respects the pref. (#78 fork)
         _selectedModel.value = saved.second
+        if (!NoopPrefs.backgroundConnection(appContext)) return
         ble.reconnectToAddress(saved.first, saved.second)
     }
 

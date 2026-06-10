@@ -330,11 +330,15 @@ public final class BLEManager: NSObject, ObservableObject {
         // no longer a blind guess. Everything else stays dropped (the offload commands need the held
         // historical-offload work). WHOOP 4.0 is unaffected.
         if selectedModel.deviceFamily == .whoop5 {
-            // Allowlist: live (toggle HR, buzz) + the two historical-offload commands. SEND_HISTORICAL_DATA
-            // triggers the offload; HISTORICAL_DATA_RESULT acks each HISTORY_END to walk the trim cursor.
-            // Both flow through the same puffinCommandFrame transport that toggle/buzz already use.
+            // Allowlist: live (toggle HR, buzz), the two historical-offload commands, and the clock
+            // pair. SEND_HISTORICAL_DATA triggers the offload; HISTORICAL_DATA_RESULT acks each
+            // HISTORY_END to walk the trim cursor. SET_CLOCK/GET_CLOCK are MANDATORY before history:
+            // an un-clocked WHOOP 5 doesn't save sensor data to flash at all ("RTC timestamp … is
+            // invalid; not saving data to flash"), so offloads complete with zero body frames —
+            // hardware-validated, same 8-byte WHOOP4 payload over puffin framing. (#78 fork)
             guard command == .toggleRealtimeHR || command == .runHapticsPattern
-                || command == .sendHistoricalData || command == .historicalDataResult else {
+                || command == .sendHistoricalData || command == .historicalDataResult
+                || command == .setClock || command == .getClock else {
                 log("send(\(command.label)) skipped — no WHOOP 5/MG framing for this command yet")
                 return
             }
@@ -1081,6 +1085,15 @@ extension BLEManager: CBPeripheralDelegate {
                 whoop5SessionStarted = true
                 connectHandshakeDone = true     // unblocks beginBackfill()'s guard
                 log("WHOOP 5/MG: connect handshake done — backfill unblocked")
+                // Clock the strap BEFORE history: an un-clocked WHOOP 5 discards sensor data ("RTC
+                // timestamp … is invalid; not saving data to flash") and history offloads "succeed"
+                // with metadata only. Same 8-byte payload as the WHOOP4 handshake, puffin-framed;
+                // GET_CLOCK's reply rides the puffin notify chars and never touches the WHOOP4
+                // clockRef correlation path. The 1.5s deferral below keeps clock-before-history.
+                // Hardware-validated ordering (#78 fork).
+                send(.setClock, payload: BLEManager.setClockPayload())
+                send(.getClock, payload: [])
+                log("WHOOP 5/MG: clock synced (set/get) — strap can persist history now")
                 log("WHOOP 5/MG: scheduling first historical offload (connect)")
                 // Deferred ~1.5s so the puffin notify subscriptions settle before SEND_HISTORICAL_DATA,
                 // mirroring the WHOOP4 kick. requestSync → beginBackfill is itself gated on

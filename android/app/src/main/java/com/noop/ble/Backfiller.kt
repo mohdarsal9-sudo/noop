@@ -1,6 +1,7 @@
 package com.noop.ble
 
 import android.content.Context
+import com.noop.data.StreamBatch
 import com.noop.data.WhoopRepository
 import com.noop.protocol.DeviceFamily
 import com.noop.protocol.Framing
@@ -49,6 +50,13 @@ class Backfiller(
      * HISTORY_END metadata.data[10:18]) the high-freq-sync ack form requires.
      */
     private val ackTrim: (trim: Long, endData: ByteArray) -> Unit,
+    /**
+     * Fires after a chunk's decoded rows are durably committed AND acked — i.e. real new data just
+     * landed. Lets the client schedule on-device scoring right away instead of leaving fresh history
+     * invisible until the next 15-min analysis tick. Empty chunks (metadata-only ENDs) don't fire.
+     * (#78 fork)
+     */
+    private val onChunkCommitted: (StreamBatch) -> Unit = {},
     /**
      * The (device, wall) clock reference. type-47 records carry their OWN real unix timestamp so
      * the offset is a no-op for them; this is supplied only for the REALTIME_RAW_DATA fallback and
@@ -143,11 +151,13 @@ class Backfiller(
             snapshot
         }
 
+        var committed: StreamBatch? = null
         if (frames.isNotEmpty()) {
             val ref = clockRef
             val decoded = extractHistoricalStreams(frames, ref.device, ref.wall, family)
             try {
                 repository.insert(decoded, deviceId) // DECODED FIRST (durable)
+                committed = decoded
             } catch (t: Throwable) {
                 return // do NOT advance/ack — chunk was never durably committed
             }
@@ -163,6 +173,7 @@ class Backfiller(
         }
 
         ackTrim(trim, endData)
+        committed?.takeIf { !it.isEmpty }?.let(onChunkCommitted)
     }
 
     /**
