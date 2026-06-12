@@ -25,7 +25,7 @@ object AppChangelog {
      * Bump this when you add a release below. The "What's New" sheet shows automatically when the
      * stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
      */
-    const val CURRENT_VERSION = "2.6.7"
+    const val CURRENT_VERSION = "2.6.8"
 
     data class Release(
         val version: String,
@@ -36,6 +36,14 @@ object AppChangelog {
 
     /** Newest first. */
     val releases: List<Release> = listOf(
+        Release(
+            version = "2.6.8",
+            title = "iPhone import: handle iCloud and large export files",
+            date = "June 2026",
+            items = listOf(
+                "Fixed (iPhone): importing a WHOOP or Apple Health export could still fail right after you picked the file. NOOP now copies the file out of iCloud Drive / Files into local storage first — so a not-yet-downloaded iCloud file or a very large export actually opens — and then imports it. Thanks @adrnxq and @Chopin85 (#179).",
+            ),
+        ),
         Release(
             version = "2.6.7",
             title = "More-tab icons stop flickering colour",

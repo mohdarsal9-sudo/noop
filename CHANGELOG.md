@@ -17,6 +17,14 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 2.6.8 — iPhone import: handle iCloud and large export files
+
+- **Fixed (iPhone):** importing a WHOOP or Apple Health export could still fail right after you picked
+  the file (the v2.6.3 fix only un-greyed the `.zip` in the picker). NOOP now copies the picked file
+  out of iCloud Drive / Files into local storage first — coordinating the read so a **not-yet-downloaded
+  iCloud file** or a **very large export** actually opens — and then streams the import. macOS is
+  unchanged. Thanks @adrnxq and @Chopin85. (#179)
+
 ## 2.6.7 — More-tab icons stop flickering colour
 
 - **Fixed (iPhone):** the icons on the **More** tab briefly flashed from green to blue a second after

@@ -18,6 +18,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "2.6.8",
+          "buildVersion": "39",
+          "date": "2026-06-12",
+          "localizedDescription": "iPhone import now handles iCloud + large export files.",
+          "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.6.8/NOOP-v2.6.8-ios.ipa",
+          "size": 5570192,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "2.6.7",
           "buildVersion": "38",
           "date": "2026-06-12",
@@ -73,12 +82,12 @@
           "NSHealthUpdateUsageDescription": "NOOP writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
         }
       },
-      "version": "2.6.7",
-      "buildVersion": "38",
+      "version": "2.6.8",
+      "buildVersion": "39",
       "versionDate": "2026-06-12",
-      "versionDescription": "More-tab icons no longer flicker green to blue.",
-      "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.6.7/NOOP-v2.6.7-ios.ipa",
-      "size": 5563111,
+      "versionDescription": "iPhone import now handles iCloud + large export files.",
+      "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.6.8/NOOP-v2.6.8-ios.ipa",
+      "size": 5570192,
       "minOSVersion": "17.0"
     }
   ],

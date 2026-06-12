@@ -431,6 +431,46 @@ final class AppModel: ObservableObject {
     }
 
     /// Import a Whoop CSV export (.zip or folder) → on-device store, then refresh the dashboard.
+    /// A picked import file made safe to read. On iOS the security-scoped — and possibly
+    /// iCloud-placeholder — URL is coordinated and COPIED into the app's temp directory, so the
+    /// importer reads a stable LOCAL file. That's what makes import work for iCloud Drive files (they
+    /// arrive as un-downloaded placeholders that ZIPFoundation can't open in place) and removes the
+    /// scoped-access timing fragility that blocked iPhone imports (#179). On macOS the picked URL is
+    /// read in place. `cleanup()` removes the temp copy. Sendable so it can cross the actor boundary.
+    struct ImportFile: Sendable {
+        let url: URL
+        private let temp: URL?
+        init(url: URL, temp: URL?) { self.url = url; self.temp = temp }
+        func cleanup() { if let temp { try? FileManager.default.removeItem(at: temp) } }
+    }
+
+    /// Runs off the main actor (nonisolated) so copying a large export never blocks the UI; the
+    /// caller holds the security scope (process-wide) for the duration.
+    nonisolated static func materializeForImport(_ picked: URL) async throws -> ImportFile {
+        #if os(iOS)
+        let ext = picked.pathExtension.isEmpty ? "dat" : picked.pathExtension
+        let dst = FileManager.default.temporaryDirectory
+            .appendingPathComponent("noop-import-\(UUID().uuidString)")
+            .appendingPathExtension(ext)
+        var coordError: NSError?
+        var ioError: Error?
+        // .forUploading materialises an iCloud placeholder and gives a stable snapshot to copy from.
+        NSFileCoordinator().coordinate(readingItemAt: picked, options: [.forUploading], error: &coordError) { readURL in
+            do {
+                if FileManager.default.fileExists(atPath: dst.path) {
+                    try FileManager.default.removeItem(at: dst)
+                }
+                try FileManager.default.copyItem(at: readURL, to: dst)
+            } catch { ioError = error }
+        }
+        if let coordError { throw coordError }
+        if let ioError { throw ioError }
+        return ImportFile(url: dst, temp: dst)
+        #else
+        return ImportFile(url: picked, temp: nil)
+        #endif
+    }
+
     func importWhoop(url: URL) {
         beginImport(.whoop)
         Task {
@@ -441,7 +481,9 @@ final class AppModel: ObservableObject {
                     finishImport(.whoop, summary: "Couldn't open the local store.", failed: true)
                     return
                 }
-                let summary = try await WhoopImporter.importExport(url: url, into: store, deviceId: deviceId)
+                let local = try await Self.materializeForImport(url)
+                defer { local.cleanup() }
+                let summary = try await WhoopImporter.importExport(url: local.url, into: store, deviceId: deviceId)
                 await repo.refresh()
                 let span: String
                 if let a = summary.earliest, let b = summary.latest {
@@ -467,7 +509,9 @@ final class AppModel: ObservableObject {
                     finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                     return
                 }
-                let summary = try await AppleHealthImport.importExport(url: url, into: store, deviceId: appleDeviceId)
+                let local = try await Self.materializeForImport(url)
+                defer { local.cleanup() }
+                let summary = try await AppleHealthImport.importExport(url: local.url, into: store, deviceId: appleDeviceId)
                 await repo.refresh()
                 finishImport(.appleHealth, summary: "Imported \(summary.recordCount) records")
             } catch {
