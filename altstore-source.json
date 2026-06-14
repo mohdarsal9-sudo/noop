@@ -18,6 +18,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "2.18.2",
+          "buildVersion": "71",
+          "date": "2026-06-14",
+          "localizedDescription": "Times follow your 12-/24-hour setting",
+          "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.18.2/NOOP-v2.18.2-ios.ipa",
+          "size": 6594449,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "2.18.1",
           "buildVersion": "70",
           "date": "2026-06-14",
@@ -361,12 +370,12 @@
           "NSHealthUpdateUsageDescription": "NOOP writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
         }
       },
-      "version": "2.18.1",
-      "buildVersion": "70",
+      "version": "2.18.2",
+      "buildVersion": "71",
       "versionDate": "2026-06-14",
-      "versionDescription": "Toggle the live-HR Dynamic Island",
-      "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.18.1/NOOP-v2.18.1-ios.ipa",
-      "size": 6594761,
+      "versionDescription": "Times follow your 12-/24-hour setting",
+      "downloadURL": "https://github.com/NoopApp/noop/releases/download/v2.18.2/NOOP-v2.18.2-ios.ipa",
+      "size": 6594449,
       "minOSVersion": "17.0"
     }
   ],
