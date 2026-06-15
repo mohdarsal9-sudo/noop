@@ -193,9 +193,20 @@ enum DemoScreens {
         case "compare":  return AnyView(CompareView())
         case "settings": return AnyView(SettingsView())
         case "devices":  return AnyView(DevicesView())
+        case "addwizard": return AnyView(AddWizardDemoHost())
         default:         return nil
         }
     }
 }
 #endif
+#endif
+
+#if DEBUG
+/// DEBUG-only host so `--demo-screen addwizard` can render the multi-step Add-a-device wizard.
+/// A SwiftUI View body is main-actor, so it can pull the injected LiveState and hand it to the
+/// wizard's `init(live:)` (the nonisolated DemoScreens switch can't construct a LiveState itself).
+private struct AddWizardDemoHost: View {
+    @EnvironmentObject var live: LiveState
+    var body: some View { AddDeviceWizard(live: live, onClose: {}) }
+}
 #endif

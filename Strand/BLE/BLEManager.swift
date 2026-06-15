@@ -518,13 +518,17 @@ public final class BLEManager: NSObject, ObservableObject {
     /// WHOOP↔WHOOP switch via the registry). Only the `SourceCoordinator` calls this, and only when a
     /// DIFFERENT registered WHOOP becomes active — the single-WHOOP path leaves the seeded "my-whoop" id
     /// in place (bootstrapStore set it; this is never called), so that path is byte-for-byte unchanged.
-    /// Purely sets the manager's `deviceId`; the in-flight Collector/Backfiller, built once in
-    /// bootstrapStore against the id active then, keep writing under their captured id until the next
-    /// store bootstrap — so a full strap switch (disconnect → reconnect) is what makes new offloads
-    /// attribute to the new id. Additive: nothing on the single-WHOOP path invokes it.
+    /// Sets the manager's `deviceId` AND re-points the in-flight Collector/Backfiller so the very next
+    /// flush / standard-HR persist / historical finishChunk attributes new samples to the new id —
+    /// without waiting for a relaunch or a full strap-switch store rebuild. The Collector reads
+    /// `deviceId` at persist time (live + 0x2A37 standard-HR paths) and the Backfiller at finishChunk,
+    /// so updating their mutable `deviceId` here is sufficient. Additive: nothing on the single-WHOOP
+    /// path invokes it, so with one WHOOP the id stays "my-whoop" throughout.
     public func setActiveDeviceId(_ id: String) {
         guard !id.isEmpty else { return }
         deviceId = id
+        collector?.deviceId = id
+        backfiller?.deviceId = id
     }
 
     /// Add-a-WHOOP wizard: scan the selected family's WHOOP service and surface every nearby strap in

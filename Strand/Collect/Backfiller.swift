@@ -35,7 +35,11 @@ final class Backfiller {
     typealias Extractor = ([ParsedFrame], Int, Int) -> Streams
 
     private let store: BackfillStoreWriting
-    private let deviceId: String
+    /// Device id offloaded chunks persist under. MUTABLE so a WHOOP↔WHOOP switch
+    /// (BLEManager.setActiveDeviceId) re-attributes the next finishChunk persist immediately, rather
+    /// than freezing the id captured at construction. Single-WHOOP never switches, so this stays
+    /// "my-whoop" exactly as a `let` would have.
+    var deviceId: String
     /// Confirms one HISTORY_END chunk to the strap. Carries both the trim cursor (= first u32
     /// of end_data, used for the `strap_trim` cursor) and the 8-byte `end_data` (= the raw
     /// HISTORY_END metadata.data[10:18]) that the high-freq-sync ack form requires verbatim.

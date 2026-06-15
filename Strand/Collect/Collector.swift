@@ -42,7 +42,10 @@ final class Collector {
     /// Concrete store for prune + stats (the StoreWriting seam covers the hot insert/enqueue path;
     /// prune/stats are infrequent so a direct reference is clearer than widening the protocol).
     private let concreteStore: WhoopStore?
-    private let deviceId: String
+    /// Device id new samples persist under. MUTABLE so a WHOOP↔WHOOP switch (BLEManager.setActiveDeviceId)
+    /// re-attributes the next flush/standard-HR persist immediately, rather than freezing the id captured
+    /// at construction. Single-WHOOP never switches, so this stays "my-whoop" exactly as a `let` would have.
+    var deviceId: String
     private let policy: CollectorPolicy
     /// Research toggle. When false (DEFAULT) no raw frames are persisted at all — the app is
     /// decoded-only. Injected for tests; backed by UserDefaults in the production init site.

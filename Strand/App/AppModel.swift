@@ -393,6 +393,44 @@ final class AppModel: ObservableObject {
     /// (lets a user with both a WHOOP 4 and a 5/MG switch between them).
     func prepareStrapSwitch() { ble.prepareForModelSwitch() }
 
+    // MARK: - Add-a-device wizard (WHOOP present-scan + register/activate)
+    //
+    // Thin pass-throughs over BLEManager's EXISTING public present-scan surface so the wizard never
+    // references BLEManager directly (mirrors `scan()` / `disconnect()`). The wizard observes
+    // `ble.discoveredWhoops` for the WHOOP families and runs its own `StandardHRSource` for generic
+    // straps — see AddDeviceWizard.
+
+    /// The straps surfaced by the WHOOP present-scan (`scanForWhoops`), for the wizard's live list.
+    /// Empty until a present-scan has discovered something; refreshed in place as RSSI updates.
+    var discoveredWhoops: [(uuid: String, name: String, rssi: Int)] { ble.discoveredWhoops }
+
+    /// Point the WHOOP scan at a specific family, then present nearby straps WITHOUT auto-connecting.
+    /// `prepareForModelSwitch()` first clears any sticky bond/connection so the engine is idle, then
+    /// `connect(model:)` selects the family + installs its framing (it sets the engine's private
+    /// `selectedModel`, which `scanForWhoops()` scans for), and the immediate `scanForWhoops()` takes
+    /// over the central in present-mode (it `stopScan()`s the connect's scan and re-arms a duplicate-
+    /// allowing present scan). The persisted `selectedWhoopModel` is updated too, so a later real
+    /// connect to the chosen strap targets the right family. All via existing public methods.
+    func presentWhoopScan(model: WhoopModel) {
+        UserDefaults.standard.set(model.rawValue, forKey: "selectedWhoopModel")
+        ble.prepareForModelSwitch()           // idle the engine + clear sticky bond
+        ble.connect(model: model)             // select the family (sets engine selectedModel + framing)
+        ble.scanForWhoops()                   // take over the central, present nearby straps only
+    }
+
+    /// End the WHOOP present-scan (idempotent). Call on leaving the wizard's pick step / on dismiss.
+    func stopWhoopScan() { ble.stopWhoopScan() }
+
+    /// Register a paired device and (optionally) make it the active one. The Add-a-device wizard's
+    /// single write path: `add` upserts the row, and when `makeActive` is true `setActive` promotes it
+    /// (the SourceCoordinator reacts to the active-device change and connects). No-op if the registry
+    /// hasn't been wired yet (pre store-open) — the wizard is only reachable once it has.
+    func registerDevice(_ device: PairedDevice, makeActive: Bool) {
+        guard let registry = deviceRegistry else { return }
+        registry.add(device)
+        if makeActive { registry.setActive(device.id) }
+    }
+
     /// Enable the realtime stream + mark it wanted so the keep-alive re-arms it (can't lapse).
     /// Blanks the stale smoothing window first (#46): on Live-tab entry / resume we don't want the
     /// pre-gap median republished, so the hero shows "—" until a fresh sample lands. The keep-alive
