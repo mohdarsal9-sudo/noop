@@ -287,6 +287,10 @@ public final class BLEManager: NSObject, ObservableObject {
     private var historicalAckLogCounter = 0
     private var clockRequested = false
     private var intentionalDisconnect = false
+    /// Consecutive `didFailToConnect` count, for the auto-reconnect backoff (#414). Reset to 0 on a
+    /// successful connect; grows the reschedule delay so a strap that's genuinely out of range doesn't
+    /// hammer Bluetooth (vs the disconnect path's flat 3s, which is fine for an already-bonded drop).
+    private var failedConnectAttempts = 0
     /// The strap family the user chose to pair. Drives which service we scan for
     /// and which service we discover after connecting. Hydrated from the persisted
     /// pick so restoration/reconnect after a relaunch target the right strap.
@@ -1088,6 +1092,9 @@ public final class BLEManager: NSObject, ObservableObject {
     /// every offload frame (and at HISTORY_COMPLETE) and refuse to count a non-offload 0x2F as live
     /// within `deepPacketLiveCooldownSeconds` of it. The flag-ACK counting (1) is unchanged.
     private func noteWhoop5R22Telemetry(_ frame: [UInt8], duringOffload: Bool) {
+        // R22 deep-data is a WHOOP 5/MG concept only. On a WHOOP 4 a type-0x2F frame is something else
+        // entirely, so counting it as a "deep packet" gave 4.0 owners a bogus deep-data counter (#346).
+        guard selectedModel.deviceFamily == .whoop5 else { return }
         guard frame.count > 10 else { return }
         if frame[8] == 0x24, frame[10] == WhoopCommand.setConfig.rawValue {
             state.r22FlagsAccepted += 1
@@ -1562,6 +1569,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         cancelScanFallback()
+        failedConnectAttempts = 0   // a successful connect clears the reconnect backoff (#414)
         restoredPeripheral = nil
         preparePeripheral(peripheral)
         // Multi-WHOOP: publish the strap's stable BLE identity so the app can persist it onto the active
@@ -1664,6 +1672,19 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
             3. Tap the strap repeatedly until its LEDs flash blue (pairing mode).
             4. Come back here and reconnect.
             """
+            return
+        }
+        // Any other connect failure (e.g. a weak-signal encrypted-handshake timeout on a 5/MG at the
+        // edge of range — #414). The disconnect path reschedules a rescan, but didFailToConnect never
+        // did, so the loop died here until a manual reconnect. Reschedule with a capped exponential
+        // backoff (3, 6, 12, 24, 48, 60s…) so a strap that's genuinely out of range doesn't hammer BLE.
+        guard !intentionalDisconnect else { return }
+        failedConnectAttempts += 1
+        let delay = min(60.0, 3.0 * pow(2.0, Double(failedConnectAttempts - 1)))
+        log("Reconnecting in \(Int(delay))s (attempt \(failedConnectAttempts))")
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, !self.intentionalDisconnect else { return }
+            self.connect()
         }
     }
 

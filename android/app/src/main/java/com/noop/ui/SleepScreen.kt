@@ -1384,7 +1384,16 @@ private fun ChartFooter(items: List<Pair<String, String>>) {
         items.forEach { (label, value) ->
             Column(modifier = Modifier.weight(1f)) {
                 Overline(label, color = Palette.textTertiary)
-                Text(value, style = NoopType.captionNumber, color = Palette.textPrimary)
+                // Stage-breakdown values like "1h 23m (24%)" wrapped to a second line in a narrow column,
+                // pushing the row taller and clipping against the card edge (#406). Hold them to one line.
+                Text(
+                    value,
+                    style = NoopType.captionNumber,
+                    color = Palette.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                )
             }
         }
     }

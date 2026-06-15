@@ -1862,6 +1862,9 @@ class WhoopBleClient(
      * [DEEP_PACKET_LIVE_COOLDOWN_MS] of it. The flag-ACK counting (1) is unchanged.
      */
     private fun noteWhoop5R22Telemetry(frame: ByteArray, duringOffload: Boolean) {
+        // R22 deep-data is a WHOOP 5/MG concept only. On a WHOOP 4 a type-0x2F frame is something else
+        // entirely, so counting it as a "deep packet" gave 4.0 owners a bogus deep-data counter (#346).
+        if (connectedFamily != DeviceFamily.WHOOP5) return
         if (frame.size <= 10) return
         val type = frame[8].toInt() and 0xFF
         if (type == 0x24 && (frame[10].toInt() and 0xFF) == CommandNumber.SET_CONFIG.rawValue) {

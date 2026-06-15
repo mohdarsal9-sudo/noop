@@ -17,6 +17,17 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 3.9.1 — A round of fixes: reconnect, exports and Health setup
+
+- **Mac & iPhone reconnect on their own.** If your strap briefly dropped out of range, or a connection attempt failed mid-handshake (a weak-signal encrypted handshake on a 5/MG at the edge of range), the app used to sit idle until you reconnected by hand — the disconnect path rescheduled a rescan, but the failed-connect path never did. It now retries on its own with a capped exponential back-off (3s → 6s → 12s … up to 60s) and stops the instant it reconnects. macOS/iOS. Thanks @phsycology (#414).
+- **Android: GPS workouts write back to Health Connect.** Workouts tracked in NOOP weren't being saved to Health Connect — the `WRITE_EXERCISE` / `WRITE_DISTANCE` permissions were never declared in the manifest, so the runtime request was silently dropped and nothing was written. Declared them and broadened the writeback gate; existing vitals-only writeback users are re-prompted once for exercise + distance. Thanks @andreasc1 (#412).
+- **Raw sensor export no longer runs out of memory.** The experimental raw-sensor CSV export built the entire file in memory (and then a second full copy) before writing, which could OOM on a busy 24-hour window. Both the Android and Mac/iOS exporters now stream rows straight to the file through a buffer, holding only the data itself. Thanks @maddognik (#406).
+- **Android: sleep stage breakdown reads cleanly.** Stage-breakdown values under the sleep chart no longer wrap onto a second line and clip against the card edge (#406).
+- **WHOOP 4.0: no phantom deep-data counter.** The experimental deep-data (R22) packet counter is a WHOOP 5/MG concept; it no longer increments on a WHOOP 4.0, where a type-0x2F frame means something else (#346).
+- **Protocol reference: 5-class (MAVERICK) command numbers** documented in `docs/PROTOCOL.md` and the protocol schema (`SEND_EVENT_PACKETS`, `SET_AFE_PARAMETERS`, `GET_AFE_PARAMETERS`, plus the MAVERICK clock renumbering). Reference only — NOOP does not send these. Thanks @j0b-dev (#418).
+
+---
+
 ## 3.9.0 — Manage several WHOOP straps, and see what each band does
 
 - **Manage several WHOOP straps.** If you own more than one WHOOP — a couple of 4.0s, a 5.0, or a mix — NOOP now tells them apart and lets you **pair, switch, rename and remove** each one from the **Devices** screen. Each strap is identified by its own Bluetooth identity, only one is ever active at a time, and your history is never mixed between devices. Cross-platform (iPhone, Mac, Android); the Android device database migrates cleanly from 3.8.0 (emulator-verified).

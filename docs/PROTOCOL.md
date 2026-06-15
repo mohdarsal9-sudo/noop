@@ -375,6 +375,26 @@ public func frame(seq: UInt8, payload: [UInt8] = [0x00]) -> [UInt8] {
 > send `EXIT_HIGH_FREQ_SYNC` (97) defensively on connect to release a strap a previous app may
 > have parked there. Plain `SEND_HISTORICAL_DATA` returns the type-47 store without it.
 
+### Additional 5-class command numbers
+
+Command bytes present on a 5-class (MAVERICK) strap beyond the safe subset above. NOOP does not
+send these; they are recorded for completeness.
+
+| Code | Command | Purpose |
+|-----:|---------|---------|
+| 48 (0x30) | `SEND_EVENT_PACKETS` | flush stored event packets |
+| 61 (0x3D) | `SET_AFE_PARAMETERS` | set optical AFE parameters |
+| 62 (0x3E) | `GET_AFE_PARAMETERS` | read optical AFE parameters |
+
+On MAVERICK the clock commands also answer in the high opcode space — `SET_CLOCK` at 146 (0x92)
+and `GET_CLOCK` at 147 (0x93), alongside `GET_HELLO` at 145 (0x91) — distinct from the 4.0
+numbers (10 / 11) above.
+
+The strap further exposes an ECG/HeartKey command family (`ECG_MAIN_CONTROL`, `ECG_SEND_RAW`,
+`ECG_SAVE_RAW`, `ECG_SAVE_FILTERED`, `ECG_SELECT_WRIST`; five consecutive codes around 0x7B–0x8B),
+an `IMU_SET_DATA_STREAM` (code 106, shared with `TOGGLE_IMU_MODE`), and a `UART_DISABLE` (0x61–0x69).
+Exact codes for these are unconfirmed.
+
 ### Destructive commands — *do not send*
 
 These exist on the wire but are **deliberately excluded** from `WhoopCommand`. They can wipe

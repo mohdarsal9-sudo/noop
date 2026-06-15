@@ -7,7 +7,7 @@ enum AppChangelog {
 
     /// Bump this when you add a release below. The "What's New" sheet shows automatically when the
     /// stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
-    static let currentVersion = "3.9.0"
+    static let currentVersion = "3.9.1"
 
     struct Release: Identifiable {
         let version: String
@@ -19,6 +19,18 @@ enum AppChangelog {
 
     /// Newest first.
     static let releases: [Release] = [
+        Release(
+            version: "3.9.1",
+            title: "A round of fixes — reconnect, exports & Health setup",
+            date: "June 2026",
+            items: [
+                "**Mac & iPhone reconnect on their own.** If your strap briefly dropped out of range (or a connection attempt failed mid-handshake), the app used to just sit there until you reconnected by hand. It now keeps retrying on its own with a gentle back-off, and stops the moment it's back. Thanks @phsycology (#414).",
+                "**Android: GPS workouts write back to Health Connect.** Workouts you track in NOOP weren't being saved to Health Connect — we'd never asked for the exercise-write permission, so the system quietly dropped them. Fixed; you'll be asked once to allow exercise + distance. Thanks @andreasc1 (#412).",
+                "**Raw sensor export no longer runs out of memory.** Exporting the raw-sensor CSV from a busy 24 hours could fail with an out-of-memory error. It now streams straight to the file as it goes, so it works no matter how much data you've gathered. Thanks @maddognik (#406).",
+                "**Android: sleep stage breakdown reads cleanly.** The stage-breakdown figures under the sleep chart no longer wrap onto a second line and clip against the card edge (#406).",
+                "**WHOOP 4.0: no more phantom deep-data counter.** The experimental deep-data packet counter is a WHOOP 5/MG feature — it no longer ticks up on a 4.0, where those packets mean something else (#346).",
+                "**Under the hood:** documented the 5-class (MAVERICK) command numbers in the protocol reference. Thanks @j0b-dev (#418).",
+            ]),
         Release(
             version: "3.9.0",
             title: "Manage several WHOOP straps — and see what each band does",

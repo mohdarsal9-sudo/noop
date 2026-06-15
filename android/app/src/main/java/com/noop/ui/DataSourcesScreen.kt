@@ -269,12 +269,15 @@ fun DataSourcesScreen(vm: AppViewModel) {
             val granted = runCatching {
                 HealthConnectImporter.client(context).permissionController.getGrantedPermissions()
             }.getOrDefault(emptySet())
-            if (granted.containsAll(HealthConnectWriter.PERMISSIONS)) {
+            // Gate on vitals AND exercise perms so a user who enabled writeback before exercise
+            // writeback shipped (vitals-only grant) still gets re-prompted for WRITE_EXERCISE/
+            // WRITE_DISTANCE — otherwise their workouts silently never reach Health Connect (#412).
+            if (granted.containsAll(HealthConnectWriter.PERMISSIONS + HealthConnectWriter.EXERCISE_PERMISSIONS)) {
                 vm.writebackHealthConnectNow()
             } else {
-                // Also request exercise-session write perms so GPS workouts can write back too
-                // (the metric-writeback gate above stays on PERMISSIONS; exercise writeback is
-                // opt-in + non-fatal). v1.71.
+                // Request vitals + exercise-session write perms together so GPS workouts can write
+                // back too (the launcher-result handler stays keyed on the vital PERMISSIONS, so
+                // exercise writeback is opt-in + non-fatal if the user declines it). v1.71 / #412.
                 hcWritePermissionLauncher.launch(HealthConnectWriter.PERMISSIONS + HealthConnectWriter.EXERCISE_PERMISSIONS)
             }
         }

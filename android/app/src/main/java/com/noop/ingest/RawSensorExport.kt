@@ -42,91 +42,94 @@ object RawSensorExport {
     private fun iso(epochSeconds: Long): String =
         UTC_FMT.format(java.time.Instant.ofEpochSecond(epochSeconds))
 
-    /** One emitted row: ts + the filled column(s) for its stream; everything else blank. Sorted by ts. */
-    private class Row(val ts: Long, val cells: List<String>)
-
     // Locale-proof Double (always '.'); reuse the exporter's csvField for the one free-text column.
     private fun n(v: Double): String = WhoopCsvExporter.num(v)
     private fun n(v: Int): String = v.toString()
 
     /**
-     * Read each stream for [deviceId] over [from, to] (inclusive, unix seconds) and build the combined
-     * long-format CSV body (header + rows sorted by ts asc). A high per-stream [limit] caps a runaway
-     * 24 h window without truncating a normal day. Returns the CSV text plus a per-stream count map.
+     * Read each stream for [deviceId] over [from, to] (inclusive, unix seconds), merge by ts ascending,
+     * and STREAM the combined long-format CSV body straight through [out] (CSV header row first). A high
+     * per-stream [limit] caps a runaway 24 h window without truncating a normal day. Returns a per-stream
+     * count map.
+     *
+     * Memory: we hold one short CSV-line String per sample, sort by ts, and write each through [out]'s
+     * buffer. The previous version built a multi-MB StringBuilder of the whole file AND then a second
+     * full copy via `header + csv` before writing — on a busy 24 h window that doubling tipped the export
+     * into an OutOfMemoryError (#406). Keeping only the raw query rows + one line each, and never
+     * materialising the whole file as a String, holds peak allocation roughly to the data itself.
      */
-    internal suspend fun buildCsv(
+    internal suspend fun writeCsv(
+        out: java.io.Writer,
         repo: WhoopRepository,
         deviceId: String,
         from: Long,
         to: Long,
         limit: Int = 200_000,
-    ): Pair<String, Map<String, Int>> {
-        val rows = ArrayList<Row>()
-        // Blank cell-lists per stream: 14 value columns after unix_s/iso_utc/stream.
+    ): Map<String, Int> {
         // index: 0 hr_bpm,1 rr_ms,2 grav_x,3 grav_y,4 grav_z,5 step_counter,6 ppg_bpm,7 ppg_conf,
         //        8 spo2_red,9 spo2_ir,10 skintemp_raw,11 resp_raw,12 event_kind,13 event_payload
-        fun cells(vararg set: Pair<Int, String>): List<String> {
-            val c = MutableList(14) { "" }
-            for ((i, v) in set) c[i] = v
-            return c
-        }
-
+        val rows = ArrayList<LineRow>()
         val counts = LinkedHashMap<String, Int>()
-        fun tally(stream: String, n: Int) { counts[stream] = n }
 
         val hr = repo.rawHrSamples(deviceId, from, to, limit)
-        tally("hr", hr.size)
-        for (s in hr) rows += Row(s.ts, mkRow("hr", s.ts, cells(0 to n(s.bpm))))
+        counts["hr"] = hr.size
+        for (s in hr) rows += LineRow(s.ts, line("hr", s.ts, 0 to n(s.bpm)))
 
         val rr = repo.rrIntervals(deviceId, from, to, limit)
-        tally("rr", rr.size)
-        for (s in rr) rows += Row(s.ts, mkRow("rr", s.ts, cells(1 to n(s.rrMs))))
+        counts["rr"] = rr.size
+        for (s in rr) rows += LineRow(s.ts, line("rr", s.ts, 1 to n(s.rrMs)))
 
         val grav = repo.gravitySamples(deviceId, from, to, limit)
-        tally("gravity", grav.size)
-        for (s in grav) rows += Row(s.ts, mkRow("gravity", s.ts, cells(2 to n(s.x), 3 to n(s.y), 4 to n(s.z))))
+        counts["gravity"] = grav.size
+        for (s in grav) rows += LineRow(s.ts, line("gravity", s.ts, 2 to n(s.x), 3 to n(s.y), 4 to n(s.z)))
 
         val steps = repo.stepSamples(deviceId, from, to, limit)
-        tally("steps", steps.size)
-        for (s in steps) rows += Row(s.ts, mkRow("steps", s.ts, cells(5 to n(s.counter))))
+        counts["steps"] = steps.size
+        for (s in steps) rows += LineRow(s.ts, line("steps", s.ts, 5 to n(s.counter)))
 
         val ppg = repo.ppgHrSamples(deviceId, from, to, limit)
-        tally("ppghr", ppg.size)
-        for (s in ppg) rows += Row(s.ts, mkRow("ppghr", s.ts, cells(6 to n(s.bpm), 7 to n(s.conf))))
+        counts["ppghr"] = ppg.size
+        for (s in ppg) rows += LineRow(s.ts, line("ppghr", s.ts, 6 to n(s.bpm), 7 to n(s.conf)))
 
         val spo2 = repo.spo2Samples(deviceId, from, to, limit)
-        tally("spo2", spo2.size)
-        for (s in spo2) rows += Row(s.ts, mkRow("spo2", s.ts, cells(8 to n(s.red), 9 to n(s.ir))))
+        counts["spo2"] = spo2.size
+        for (s in spo2) rows += LineRow(s.ts, line("spo2", s.ts, 8 to n(s.red), 9 to n(s.ir)))
 
         val skin = repo.skinTempSamples(deviceId, from, to, limit)
-        tally("skintemp", skin.size)
-        for (s in skin) rows += Row(s.ts, mkRow("skintemp", s.ts, cells(10 to n(s.raw))))
+        counts["skintemp"] = skin.size
+        for (s in skin) rows += LineRow(s.ts, line("skintemp", s.ts, 10 to n(s.raw)))
 
         val resp = repo.respSamples(deviceId, from, to, limit)
-        tally("resp", resp.size)
-        for (s in resp) rows += Row(s.ts, mkRow("resp", s.ts, cells(11 to n(s.raw))))
+        counts["resp"] = resp.size
+        for (s in resp) rows += LineRow(s.ts, line("resp", s.ts, 11 to n(s.raw)))
 
         val events = repo.events(deviceId, from, to, limit)
-        tally("event", events.size)
-        for (s in events) {
-            rows += Row(
-                s.ts,
-                mkRow("event", s.ts, cells(12 to WhoopCsvExporter.csvField(s.kind), 13 to WhoopCsvExporter.csvField(s.payloadJSON))),
-            )
-        }
+        counts["event"] = events.size
+        for (s in events) rows += LineRow(
+            s.ts,
+            line("event", s.ts, 12 to WhoopCsvExporter.csvField(s.kind), 13 to WhoopCsvExporter.csvField(s.payloadJSON)),
+        )
 
         // Stable sort by ts asc (a stream's intra-ts order is its query's secondary key).
         rows.sortBy { it.ts }
-        val sb = StringBuilder(HEADER).append('\n')
-        for (r in rows) sb.append(r.cells.joinToString(",")).append('\n')
-        return sb.toString() to counts
+        out.write(HEADER); out.write("\n")
+        for (r in rows) { out.write(r.line); out.write("\n") }
+        return counts
     }
 
-    /** unix_s,iso_utc,stream + the 14 value cells. */
-    private fun mkRow(stream: String, ts: Long, valueCells: List<String>): List<String> =
-        ArrayList<String>(17).apply {
-            add(ts.toString()); add(iso(ts)); add(stream); addAll(valueCells)
+    /** ts + the fully-formatted CSV line for one sample (kept small so a whole day fits in memory). */
+    private class LineRow(val ts: Long, val line: String)
+
+    /** Build one CSV line: `unix_s,iso_utc,stream` + the 14 value cells (only [set] indices filled). */
+    private fun line(stream: String, ts: Long, vararg set: Pair<Int, String>): String {
+        val sb = StringBuilder(96)
+        sb.append(ts).append(',').append(iso(ts)).append(',').append(stream)
+        for (i in 0 until 14) {
+            sb.append(',')
+            for ((idx, v) in set) if (idx == i) { sb.append(v); break }
         }
+        return sb.toString()
+    }
 
     /**
      * Build the last-24 h CSV for the strap source and fire a share sheet (text/csv). Runs the DB read
@@ -136,16 +139,15 @@ object RawSensorExport {
     suspend fun export(context: Context, repo: WhoopRepository, deviceId: String = "my-whoop") {
         runCatching {
             val now = System.currentTimeMillis() / 1000
-            val (csv, counts) = buildCsv(repo, deviceId, now - 86_400, now)
-
-            val header = buildString {
-                appendLine("# NOOP raw sensor export · last 24h · long-format CSV")
-                appendLine("# App: ${BuildConfig.VERSION_NAME} (${BuildConfig.TIER}) · Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
-                appendLine("# One row per decoded sample; only the row's `stream` columns are filled. Times are UTC.")
-            }
             val dir = File(context.cacheDir, "logs").apply { mkdirs() }
             val file = File(dir, "noop-raw-sensors.csv")
-            file.writeText(header + csv)
+            // Stream straight to disk through an 8 KB buffer — never hold the whole CSV as a String (#406).
+            val counts = file.bufferedWriter().use { w ->
+                w.append("# NOOP raw sensor export · last 24h · long-format CSV\n")
+                w.append("# App: ${BuildConfig.VERSION_NAME} (${BuildConfig.TIER}) · Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}\n")
+                w.append("# One row per decoded sample; only the row's `stream` columns are filled. Times are UTC.\n")
+                writeCsv(w, repo, deviceId, now - 86_400, now)
+            }
 
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             val send = Intent(Intent.ACTION_SEND).apply {

@@ -267,23 +267,35 @@ extension WhoopStore {
             return out
         }
 
-        // Assemble: header + one comma-joined line per row, with the unix_s + iso_utc prefix columns.
+        // Stream the rows straight to disk through a FileHandle, flushing in ~64 KB chunks, instead of
+        // building the whole CSV as one in-memory String: a busy 24 h export otherwise held tens of MB
+        // twice — the assembled String plus its UTF-8 Data copy that `write(to:)` makes — and could OOM
+        // (#406, parity with the Android exporter's streaming fix).
         let iso = ISO8601DateFormatter()
         iso.timeZone = TimeZone(identifier: "UTC")
         iso.formatOptions = [.withInternetDateTime]
-        var text = WhoopStore.rawCSVHeader + "\n"
-        text.reserveCapacity(rows.count * 48 + 64)
-        for row in rows {
-            let isoStr = iso.string(from: Date(timeIntervalSince1970: TimeInterval(row.ts)))
-            text += "\(row.ts),\(isoStr),"
-            text += row.cols.joined(separator: ",")
-            text += "\n"
-        }
 
         let stamp = Int(Date().timeIntervalSince1970)
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("noop-raw-sensors-\(stamp).csv")
-        try text.write(to: url, atomically: true, encoding: .utf8)
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+
+        try handle.write(contentsOf: Data((WhoopStore.rawCSVHeader + "\n").utf8))
+        var buf = String()
+        buf.reserveCapacity(72 * 1024)
+        for row in rows {
+            let isoStr = iso.string(from: Date(timeIntervalSince1970: TimeInterval(row.ts)))
+            buf += "\(row.ts),\(isoStr),"
+            buf += row.cols.joined(separator: ",")
+            buf += "\n"
+            if buf.utf8.count >= 64 * 1024 {
+                try handle.write(contentsOf: Data(buf.utf8))
+                buf.removeAll(keepingCapacity: true)
+            }
+        }
+        if !buf.isEmpty { try handle.write(contentsOf: Data(buf.utf8)) }
         return url
     }
 
