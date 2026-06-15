@@ -884,4 +884,16 @@ private struct VitalsSection: View {
         .frame(width: 900, height: 760)
         .preferredColorScheme(.dark)
 }
+
+/// Deterministic render target for `--demo-screen fitnessage` (pair with `--demo-seed` to populate the
+/// weekly value). Shows the REAL `FitnessAgeSection` on the production scaffold, so a screenshot matches
+/// what ships. Reads the same injected `repo`/`profile` environment objects as the live app.
+struct FitnessAgeDemoScreen: View {
+    var body: some View {
+        ScreenScaffold(title: "Health Monitor", subtitle: "Fitness Age", onRefresh: {}) {
+            FitnessAgeSection()
+        }
+        .preferredColorScheme(.dark)
+    }
+}
 #endif

@@ -198,6 +198,7 @@ enum DemoScreens {
         case "settings": return AnyView(SettingsView())
         case "devices":  return AnyView(DevicesView())
         case "devicescatalog": return AnyView(DeviceCardCatalog())
+        case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "addwizard": return AnyView(AddWizardDemoHost())
         default:         return nil
         }
