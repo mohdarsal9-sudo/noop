@@ -553,6 +553,22 @@ struct TodayView: View {
             // width so the rings never crush.
             scoreHeroRow(d: d, score: score)
 
+            // Honest "why is Effort 0?" caption (#482/#480) — only when today's Effort is a real
+            // near-zero, so a calm day reads as explained rather than broken.
+            if let note = effortZeroNote {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.effortColor)
+                    Text(note)
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 2)
+                .accessibilityElement(children: .combine)
+            }
+
             // Screen-4 metric card: HRV / Resting HR / Respiratory as labelled metric rows, the
             // vitals that drive recovery, in one frosted gold-tinted card under the hero ring.
             recoveryVitalsCard(d)
@@ -772,6 +788,17 @@ struct TodayView: View {
     private func effortStrain(_ d: DailyMetric?) -> Double? {
         if selectedDayOffset == 0, let live = liveTodayStrain { return live }
         return d?.strain
+    }
+
+    /// When TODAY's Effort scores a genuine near-zero — there's enough HR to score, but it never
+    /// crossed the cardiovascular "effort zone" (~50% of heart-rate reserve) — explain the 0 instead
+    /// of leaving a bare number that reads as a fault (#482/#480). A low-HR day honestly earns ~0, the
+    /// same as a WHOOP low-strain day; the 5/MG just hits it more often (sparser HR, lower daytime
+    /// peaks). Only for today, only when the score is ~0 and a score exists (a no-data ring shows its
+    /// own overlay, a past day isn't annotated).
+    private var effortZeroNote: String? {
+        guard selectedDayOffset == 0, let s = effortStrain(displayDay), s < 1.0 else { return nil }
+        return "No cardio load yet — Effort builds once your heart rate climbs into your effort zone (around 50% of your heart-rate reserve). A calm day honestly reads near zero."
     }
 
     /// Strain value to feed the Effort gauge, on the SELECTED display scale (#313). The effective

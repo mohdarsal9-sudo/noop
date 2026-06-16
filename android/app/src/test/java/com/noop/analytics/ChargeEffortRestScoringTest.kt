@@ -89,6 +89,42 @@ class ChargeEffortRestScoringTest {
         assertNull(StrainScorer.strain(hrConstant(135), maxHR = 60.0, restingHR = 60.0)) // HRR ≤ 0
     }
 
+    // ── #482/#480 sparse-strap acceptance + honest-zero (parity with Swift StrainScorerTests) ──
+
+    /** n samples at a fixed cadence (default 30 s — the WHOOP 5/MG live-HR rate). */
+    private fun hrEvery(bpm: Int, n: Int, stepS: Int = 30): List<HrSample> =
+        (0 until n).map { HrSample(deviceId = "t", ts = (it * stepS).toLong(), bpm = bpm) }
+
+    @Test
+    fun effort_sparseStreamScoresOnceItSpansEnoughTime() {
+        // 5/MG: ~30 samples at 30 s — under minReadings (600) but spanning ~15 min, so it scores
+        // rather than returning null (which made the live gauge show a stale prior-day value).
+        val sparse = hrEvery(155, 30) // 30 × 30 s = 870 s span; 155 bpm ≈ z5 on max 160
+        assertTrue(sparse.last().ts - sparse.first().ts >= StrainScorer.minSpanSeconds)
+        assertNotNull(StrainScorer.strain(sparse, maxHR = 160.0, restingHR = 60.0))
+    }
+
+    @Test
+    fun effort_sparseStreamStillNullUnderSampleFloor() {
+        val tooFew = hrEvery(155, 5, stepS = 200) // 5 samples, wide span, under floor
+        assertNull(StrainScorer.strain(tooFew, maxHR = 160.0, restingHR = 60.0))
+    }
+
+    @Test
+    fun effort_lightDayHonestlyScoresZeroNotFabricated() {
+        // HR below ~50% HRR earns ZERO, by design — the sparse path must not invent load. With
+        // max 184 / rest 60, zone 1 starts at 122 bpm; 105 bpm stays below it on both cadences.
+        assertEquals(0.0, StrainScorer.strain(hrConstant(105, n = 1200), maxHR = 184.0, restingHR = 60.0))
+        assertEquals(0.0, StrainScorer.strain(hrEvery(105, 40), maxHR = 184.0, restingHR = 60.0))
+    }
+
+    @Test
+    fun effort_sparseStreamScoresRealWorkout() {
+        val s = StrainScorer.strain(hrEvery(175, 40), maxHR = 184.0, restingHR = 60.0)
+        assertNotNull(s)
+        assertTrue(s!! > 0.0)
+    }
+
     // ── Charge (RecoveryScorer skin-temp term) ─────────────────────────────────
 
     @Test

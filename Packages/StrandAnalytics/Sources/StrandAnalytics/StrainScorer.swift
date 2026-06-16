@@ -30,8 +30,19 @@ public enum StrainScorer {
 
     // MARK: - Constants (strain.py)
 
-    /// Minimum HR readings before computing strain (≈10 min at 1 Hz).
+    /// Minimum HR readings before computing strain on a DENSE stream (≈10 min at 1 Hz).
     public static let minReadings: Int = 600
+    /// Sparse-stream acceptance (#482/#480): a low-cadence strap — the WHOOP 5/MG sends live
+    /// standard HR only ~every 30 s — would need ~5 h of continuous wear to reach `minReadings`,
+    /// so Effort sat un-scored (nil → the gauge showed a stale prior-day value) for most of the day.
+    /// Also accept once the HR series SPANS at least `minSpanSeconds` of wall-clock with a small
+    /// sample floor. This never fabricates load: TRIMP still integrates honestly over whatever HR is
+    /// there, so a genuine low-HR day scores 0 either way — it just lets the live gauge reflect TODAY
+    /// instead of yesterday. A dense 1 Hz stream is unaffected (it clears `minReadings` first).
+    public static let minSparseReadings: Int = 20
+    /// Wall-clock coverage (seconds) that qualifies a sparse stream. 600 s = 10 min, matching the
+    /// dense gate's ≈10 min of 600 × 1 Hz samples, so both cadences trust the number at the same age.
+    public static let minSpanSeconds: Int = 600
     /// Top of the strain ("Effort") scale. Rescaled 21.0 → 100.0 for the
     /// Charge/Effort/Rest redesign; only the output scale changes, the curve does not.
     public static let maxStrain: Double = 100.0
@@ -184,8 +195,9 @@ public enum StrainScorer {
 
     /// Cardiovascular strain / "Effort" (0–100) from an HR series. APPROXIMATE.
     ///
-    /// Returns nil when there are fewer than `minReadings` samples or
-    /// maxHR ≤ restingHR (invalid HRR).
+    /// Returns nil when there isn't yet enough data to trust the number — fewer than
+    /// `minReadings` samples AND less than `minSpanSeconds` of HR coverage (the sparse-strap
+    /// path, #482) — or when maxHR ≤ restingHR (invalid HRR).
     ///
     /// - Parameters:
     ///   - hr: time-ordered `[HRSample]`.
@@ -201,7 +213,18 @@ public enum StrainScorer {
                               sex: String = "male",
                               denominator: Double = strainDenominator) -> Double? {
         let effMax = maxHR ?? Double(defaultMaxHR())
-        if hr.count < minReadings || effMax <= restingHR { return nil }
+        // Enough data to trust the score: a dense stream (≥ minReadings) OR a sparse-but-sustained
+        // one spanning ≥ minSpanSeconds with a sample floor (#482 — the 5/MG's ~30 s HR cadence).
+        let enoughData: Bool
+        if hr.count >= minReadings {
+            enoughData = true
+        } else if hr.count >= minSparseReadings {
+            let tss = hr.map { $0.ts }
+            enoughData = ((tss.max() ?? 0) - (tss.min() ?? 0)) >= minSpanSeconds
+        } else {
+            enoughData = false
+        }
+        if !enoughData || effMax <= restingHR { return nil }
 
         let sampleDur = sampleDurationMinutes(hr)
         let hrReserve = effMax - restingHR

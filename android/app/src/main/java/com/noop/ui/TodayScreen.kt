@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Battery5Bar
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -435,6 +436,31 @@ fun TodayScreen(viewModel: AppViewModel, onSupport: () -> Unit = {}) {
             liveTodayStrain = if (selectedDayOffset == 0) liveTodayStrain else null,
             onScoreInfo = openGuide,
         )
+
+        // Honest "why is Effort 0?" caption (#482/#480) — only when today's Effort is a real
+        // near-zero (HR present but never crossed the cardio zone), so a calm day reads as explained
+        // rather than broken. Mirrors the iOS effortZeroNote. A low-HR day honestly earns ~0.
+        val todayEffort = if (selectedDayOffset == 0) (liveTodayStrain ?: displayMetric?.strain) else null
+        if (todayEffort != null && todayEffort < 1.0) {
+            Row(
+                modifier = Modifier.padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = Palette.effortColor,
+                    modifier = Modifier.size(Metrics.iconSmall),
+                )
+                Text(
+                    "No cardio load yet — Effort builds once your heart rate climbs into your effort " +
+                        "zone (around 50% of your heart-rate reserve). A calm day honestly reads near zero.",
+                    style = NoopType.footnote,
+                    color = Palette.textTertiary,
+                )
+            }
+        }
 
         // CONTRIBUTORS (README screen #5, recovery detail) — what drove today's Charge, as labelled
         // progress bars (HRV / Resting HR / Sleep / Respiratory) in the shared stage/zone bar style.

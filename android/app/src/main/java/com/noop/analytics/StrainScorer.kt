@@ -42,8 +42,21 @@ object StrainScorer {
 
     // ---- Constants (strain.py) ----
 
-    /** Minimum HR readings before computing strain (≈10 min at 1 Hz). */
+    /** Minimum HR readings before computing strain on a DENSE stream (≈10 min at 1 Hz). */
     const val minReadings: Int = 600
+    /**
+     * Sparse-stream acceptance (#482/#480): a low-cadence strap — the WHOOP 5/MG sends live
+     * standard HR only ~every 30 s — would need ~5 h of continuous wear to reach [minReadings], so
+     * Effort sat un-scored (null → a stale prior-day value on the gauge) for most of the day. Also
+     * accept once the HR series SPANS at least [minSpanSeconds] of wall-clock with a small sample
+     * floor. This never fabricates load: TRIMP still integrates honestly, so a genuine low-HR day
+     * scores 0 either way — it just lets the live gauge reflect TODAY. A dense 1 Hz stream is
+     * unaffected (it clears [minReadings] first).
+     */
+    const val minSparseReadings: Int = 20
+    /** Wall-clock coverage (seconds) qualifying a sparse stream. 600 s = 10 min, matching the dense
+     *  gate's ≈10 min of 600 × 1 Hz samples, so both cadences trust the number at the same age. */
+    const val minSpanSeconds: Int = 600
 
     /** Top of the Effort scale (was 21.0 — rescaled to 0–100 for "Effort"). */
     const val maxStrain: Double = 100.0
@@ -227,7 +240,8 @@ object StrainScorer {
     /**
      * Cardiovascular Effort (0–100) from an HR series. APPROXIMATE.
      *
-     * Returns null when there are fewer than [minReadings] samples or
+     * Returns null when there isn't yet enough data to trust the number — fewer than [minReadings]
+     * samples AND less than [minSpanSeconds] of HR coverage (the sparse-strap path, #482) — or when
      * maxHR ≤ restingHR (invalid HRR).
      *
      * @param hr time-ordered [HrSample] list.
@@ -246,7 +260,17 @@ object StrainScorer {
         denominator: Double = strainDenominator,
     ): Double? {
         val effMax = maxHR ?: defaultMaxHR().toDouble()
-        if (hr.size < minReadings || effMax <= restingHR) return null
+        // Enough data to trust the score: a dense stream (≥ minReadings) OR a sparse-but-sustained
+        // one spanning ≥ minSpanSeconds with a sample floor (#482 — the 5/MG's ~30 s HR cadence).
+        val enoughData = when {
+            hr.size >= minReadings -> true
+            hr.size >= minSparseReadings -> {
+                val tss = hr.map { it.ts }
+                (tss.maxOrNull() ?: 0L) - (tss.minOrNull() ?: 0L) >= minSpanSeconds
+            }
+            else -> false
+        }
+        if (!enoughData || effMax <= restingHR) return null
 
         val sampleDur = sampleDurationMinutes(hr)
         val hrReserve = effMax - restingHR

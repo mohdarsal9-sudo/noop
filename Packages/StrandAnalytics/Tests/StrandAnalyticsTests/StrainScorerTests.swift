@@ -63,6 +63,47 @@ final class StrainScorerTests: XCTestCase {
         XCTAssertLessThanOrEqual(s, 100.0)
     }
 
+    // MARK: - #482/#480 sparse-strap acceptance + honest-zero (regression guards)
+
+    /// Build n samples at a fixed cadence (default 30 s — the WHOOP 5/MG live-HR rate).
+    private func hrEvery(_ bpm: Int, _ n: Int, stepS: Int = 30, start: Int = 0) -> [HRSample] {
+        (0..<n).map { HRSample(ts: start + $0 * stepS, bpm: bpm) }
+    }
+
+    func testSparseStreamScoresOnceItSpansEnoughTime() {
+        // The 5/MG case: only ~30 live samples at 30 s cadence — far under minReadings (600), but
+        // they SPAN ~15 min, so the score should compute rather than return nil (which made the live
+        // gauge fall back to a stale prior-day value). HR 185 is z5, so it produces a real number.
+        let sparse = hrEvery(185, 30)                                // 30 × 30 s = 870 s span
+        XCTAssertGreaterThanOrEqual(sparse.last!.ts - sparse.first!.ts, StrainScorer.minSpanSeconds)
+        XCTAssertNotNil(StrainScorer.strain(sparse, maxHR: 190, restingHR: 60))
+    }
+
+    func testSparseStreamStillNilUnderSampleFloor() {
+        // A handful of readings (under minSparseReadings) is too little to trust even if spread out.
+        let tooFew = hrEvery(185, 5, stepS: 200)                     // 5 samples, wide span, < floor
+        XCTAssertNil(StrainScorer.strain(tooFew, maxHR: 190, restingHR: 60))
+    }
+
+    func testLightDayHonestlyScoresZeroNotFabricated() {
+        // #482: HR that never crosses ~50% HRR earns ZERO Effort, by design. With max 184 / rest 60,
+        // zone 1 starts at 122 bpm; a day spent at 82–110 stays below it. The fix must NOT invent
+        // load to make the gauge "look alive" — both a dense (4.0) and a sparse (5/MG) light day = 0.
+        let denseLight = hr(105, 1200, start: 0)                     // 4.0-style, 20 min at 1 Hz
+        let sparseLight = hrEvery(105, 40)                           // 5/MG-style, 40 × 30 s
+        XCTAssertEqual(StrainScorer.strain(denseLight, maxHR: 184, restingHR: 60), 0.0)
+        XCTAssertEqual(StrainScorer.strain(sparseLight, maxHR: 184, restingHR: 60), 0.0)
+    }
+
+    func testSparseStreamScoresRealWorkout() {
+        // The same sparse cadence, but a genuine workout (z5) — Effort must be clearly > 0, proving the
+        // zero above is about intensity, not about the sparse path swallowing real load.
+        let sparseHard = hrEvery(175, 40)                            // 175 bpm ≈ 93% HRR → z5
+        let s = StrainScorer.strain(sparseHard, maxHR: 184, restingHR: 60)
+        XCTAssertNotNil(s)
+        XCTAssertGreaterThan(s!, 0)
+    }
+
     func testEstimateHRmaxObservedVsTanaka() {
         // Thin history but known age → tanaka.
         let (v1, src1) = StrainScorer.estimateHRmax([150, 160, 170], age: 30)

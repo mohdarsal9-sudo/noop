@@ -25,7 +25,7 @@ object AppChangelog {
      * Bump this when you add a release below. The "What's New" sheet shows automatically when the
      * stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
      */
-    const val CURRENT_VERSION = "4.2.12"
+    const val CURRENT_VERSION = "4.2.13"
 
     data class Release(
         val version: String,
@@ -36,6 +36,15 @@ object AppChangelog {
 
     /** Newest first. */
     val releases: List<Release> = listOf(
+        Release(
+            version = "4.2.13",
+            title = "Effort explains a calm-day zero — and scores on the 5.0/MG",
+            date = "June 2026",
+            items = listOf(
+                "**Effort now explains a calm-day zero instead of just showing \"0.0\".** Effort is *cardiovascular* load — it only builds while your heart rate is up in your effort zone (roughly the top half of your heart-rate reserve, often ~120 bpm and above). On a genuinely easy day your heart rate never gets there, so the honest answer really is near zero — the same way a WHOOP low-strain day reads low. The number was right, but a bare \"0.0\" looked broken, so Today now adds a short line explaining it. We also fixed the WHOOP 5.0/MG case where Effort could sit un-scored for hours: the 5.0/MG sends live heart rate far less often than a 4.0, and the gauge needed a fixed *number* of readings before it would score — now it scores once it has enough *time* of heart-rate coverage, so a steady 5.0/MG stream counts and the gauge stops falling back to a stale value. Effort still only rewards real exertion — nothing is invented. Thanks @darylbleach and @phsycology (#482, #480).",
+                "**History from a long-drained strap lands on the right day again.** When a WHOOP's internal clock had fully reset — it sat uncharged so long its clock fell back to around 1970 — syncing its stored history could date every night decades into the future, silently wiping sleep and recovery from your timeline. NOOP now keeps the real timestamps in that case. Thanks @cataboysbusiness-debug (#471).",
+            ),
+        ),
         Release(
             version = "4.2.12",
             title = "Fix: app crashing / won't open when Bluetooth is on",

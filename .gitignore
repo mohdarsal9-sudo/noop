@@ -72,3 +72,6 @@ export.zip
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Local release artifacts (zips/ipas built for upload; never tracked)
+dist/
