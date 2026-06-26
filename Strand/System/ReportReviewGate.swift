@@ -12,12 +12,19 @@ struct ReportReviewGate {
 
     init(entries: [FileExport.BundleEntry]) { self.entries = entries }
 
-    /// The report.txt body shown in the review sheet so the user can read what they're sharing and
-    /// cancel if anything looks personal. Empty string if no report.txt is present.
+    /// Every text file the user is about to share, shown in the review sheet so they can read the WHOLE
+    /// bundle (not just report.txt) and cancel if anything looks personal — the gate promises the user sees
+    /// exactly what they share. Each text entry is prefixed with a `=== <name> ===` header so the three
+    /// files (report.txt, meta.json, and last-crash.txt when present) are clearly delimited. The
+    /// raw-capture stream is excluded: it is the bounded binary capture (up to the 20 MB cap), not a report
+    /// surface, and is already PII-scrubbed by the assembler. Order is the natural bundle order. Empty
+    /// string if there is nothing text-decodable to show.
     var previewText: String {
-        guard let report = entries.first(where: { $0.name == "report.txt" }),
-              let text = String(data: report.data, encoding: .utf8) else { return "" }
-        return text
+        entries.compactMap { entry -> String? in
+            guard entry.name != "raw-capture.jsonl",
+                  let text = String(data: entry.data, encoding: .utf8) else { return nil }
+            return "=== \(entry.name) ===\n\(text)"
+        }.joined(separator: "\n\n")
     }
 
     /// Explicit user confirmation: the only way the gate clears.

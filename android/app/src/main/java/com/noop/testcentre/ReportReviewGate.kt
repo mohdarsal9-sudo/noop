@@ -11,9 +11,17 @@ class ReportReviewGate(private val entries: List<Pair<String, ByteArray>>) {
     var isCleared: Boolean = false
         private set
 
-    /** The report.txt body the user is about to share, so they can read and cancel; "" if absent. */
+    /**
+     * Every text file the user is about to share, so they can read the WHOLE bundle (not just report.txt)
+     * and cancel if anything looks personal. Each text entry is prefixed with a `=== <name> ===` header so
+     * report.txt, meta.json, and last-crash.txt (when present) are clearly delimited. The raw-capture
+     * stream is excluded: it is the bounded binary capture (up to the 20 MB cap), not a report surface, and
+     * is already PII-scrubbed by the assembler. "" if there is nothing text-decodable to show. Mirrors Swift.
+     */
     val previewText: String
-        get() = entries.firstOrNull { it.first == "report.txt" }?.second?.let { String(it) } ?: ""
+        get() = entries
+            .filter { it.first != "raw-capture.jsonl" }
+            .joinToString("\n\n") { (name, data) -> "=== $name ===\n${String(data)}" }
 
     /** Explicit user confirmation: the only way the gate clears. */
     fun confirm() { isCleared = true }
