@@ -632,7 +632,7 @@ public enum AnalyticsEngine {
 
     /// Min worn, in-bed skin-temp samples (1 Hz ⇒ seconds) before a nightly mean is trusted.
     /// ~5 min guards against a few stray samples fabricating a baseline value.
-    static let minSkinTempSamples = 300
+    public static let minSkinTempSamples = 300
 
     /// Plausible worn skin-temperature range (°C). Off-wrist/charging samples drift to ambient
     /// and are excluded; the strap's own decode gate is the looser 5–45.

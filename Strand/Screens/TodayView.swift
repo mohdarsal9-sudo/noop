@@ -3294,7 +3294,9 @@ enum MetricTileState: Equatable {
         case .scored:                       return nil
         case .calibrating:                  return "Calibrating"
         case .carriedLastNight(let date, let stale):
-            return stale ? "Latest sleep · \(date)" : "Last night · \(date)"
+            // stringLiteral keeps this a stable, fully-formed key (the date is already substituted) rather
+            // than a "... %@" format key, so the caption is testable + renders the exact same string.
+            return LocalizedStringKey(stringLiteral: stale ? "Latest sleep · \(date)" : "Last night · \(date)")
         case .needsStrap:                   return "Needs the strap"
         }
     }
