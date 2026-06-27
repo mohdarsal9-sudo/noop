@@ -126,7 +126,7 @@ final class ExperimentalDriversTests: XCTestCase {
     func testActivatingAppleWatchDoesNotStopWhoopOrStartABLESource() async throws {
         // Real in-memory store + registry, matching how `AppModel.wireSourceCoordinator` builds them.
         let store = try await WhoopStore.inMemory()
-        let registry = DeviceRegistry(store: DeviceRegistryStore(dbQueue: store.registryQueue))
+        let registry = DeviceRegistry(store: DeviceRegistryStore(dbQueue: store.registryWriter))
         registry.reload()   // seeds 'my-whoop' active from migration v15
 
         // Register the Apple Watch exactly as `AppleWatchDevice.device(...)` would: HealthKit source,

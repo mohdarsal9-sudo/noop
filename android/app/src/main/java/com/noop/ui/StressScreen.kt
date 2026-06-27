@@ -936,7 +936,7 @@ private fun StressEmpty() {
 
 // MARK: - Stress band
 
-private enum class StressBand(val title: String, val tone: StrandTone) {
+internal enum class StressBand(val title: String, val tone: StrandTone) {
     Low("LOW", StrandTone.Positive),
     Medium("MEDIUM", StrandTone.Warning),
     High("HIGH", StrandTone.Critical);
@@ -976,7 +976,7 @@ private object StressRamp {
 
 // MARK: - Trend range (the W/M/3M/6M/1Y/ALL window, mirroring ExploreRange)
 
-private enum class StressRange(val label: String, val days: Int?) {
+internal enum class StressRange(val label: String, val days: Int?) {
     Week("W", 7),
     Month("M", 30),
     Quarter("3M", 90),
