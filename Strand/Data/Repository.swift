@@ -3,7 +3,7 @@ import Combine
 import WhoopStore
 import WhoopProtocol
 import StrandAnalytics
-import StrandDesign   // TrendPoint — the shared chart point type the Deep Timeline series uses
+import StrandDesign   // TrendPoint , the shared chart point type the Deep Timeline series uses
 
 /// Per-day sleep figures the WHOOP export carried verbatim (metricSeries rows written by
 /// WhoopImporter under the imported deviceId). SleepView prefers these over its on-device
@@ -15,11 +15,11 @@ struct ImportedSleepFigures: Equatable {
     var debtMin: Double?          // "sleep_debt_min", minutes
 }
 
-// MARK: - Cross-source resolver model (PR#196 — fresher live charts/metrics)
+// MARK: - Cross-source resolver model (PR#196 , fresher live charts/metrics)
 //
 // Product surfaces (Compare, Insights, Stress, Explore, Today) historically read rows under the EXACT
 // requested source. That hid freshly-computed and Apple-compatible data that sat under a different
-// device id. `Repository.resolvedSeries` resolves a metric over an explicit source PRECEDENCE — imported
+// device id. `Repository.resolvedSeries` resolves a metric over an explicit source PRECEDENCE , imported
 // WHOOP wins, NOOP-computed fills the days it doesn't cover, and Apple Health only fills declared-
 // compatible vitals on days neither strap source has. These types model that resolution; the exact-source
 // reads (`series(key:source:)`) stay available for surfaces that must not mix sources.
@@ -44,7 +44,7 @@ struct MetricSeriesResolution: Equatable, Sendable {
     let candidates: [MetricSourceCandidate]
     let points: [ResolvedMetricPoint]
 
-    /// Plain `(day, value)` rows — the shape the chart/correlation code already consumes.
+    /// Plain `(day, value)` rows , the shape the chart/correlation code already consumes.
     var values: [(day: String, value: Double)] { points.map { ($0.day, $0.value) } }
 
     /// Distinct sources that actually contributed a point, in first-seen order (for a caption).
@@ -83,7 +83,7 @@ struct SourcedDailyMetric: Equatable {
 }
 
 /// A compact snapshot of how much history each source holds, fed to the Data Sources "Freshness
-/// Pipeline" card and the Android equivalent. Counts only — no per-day rows leave the refresh.
+/// Pipeline" card and the Android equivalent. Counts only , no per-day rows leave the refresh.
 struct RepositoryFreshness: Equatable, Sendable {
     var importedDays: Int = 0
     var computedDays: Int = 0
@@ -114,6 +114,28 @@ final class Repository: ObservableObject {
     /// streams by IntelligenceEngine). Merged UNDER the imported `deviceId` rows at read time, so a
     /// real WHOOP import always wins and the strap-only user still gets a populated dashboard.
     private var computedDeviceId: String { deviceId + "-noop" }
+
+    /// The CANONICAL imported/computed id ("my-whoop" + its "-noop" sibling). The WHOOP-IMPORT and the
+    /// engine's computed write target stay STABLE here forever (they never follow the active strap), so a
+    /// remove+re-add never orphans the history a prior import/score banked. `deviceId` follows the active
+    /// strap so today's LIVE raw under a re-added strap's "whoop-<uuid>" id still surfaces (#814); reads
+    /// take the UNION of the two so BOTH the live strap AND the canonical history reach the dashboard.
+    /// When the active strap IS the canonical id (single-device install) the union collapses to one id and
+    /// is byte-identical to the pre-union behaviour.
+    private var canonicalDeviceId: String { Self.whoopSource }
+    private var canonicalComputedId: String { Self.whoopSource + "-noop" }
+
+    /// The distinct IMPORTED/MEASURED source ids to union for a dashboard read: the active strap (live raw,
+    /// #814) and the canonical imported id. Active strap FIRST so per-day dedup lets the measured/live row
+    /// win over the imported one. Deduped, so a single-device install (active id == canonical) reads one id.
+    private var importedReadIds: [String] {
+        deviceId == canonicalDeviceId ? [deviceId] : [deviceId, canonicalDeviceId]
+    }
+    /// The distinct COMPUTED ("-noop") source ids to union: the active strap's computed sibling and the
+    /// canonical computed sibling. Same dedup rule as `importedReadIds`.
+    private var computedReadIds: [String] {
+        computedDeviceId == canonicalComputedId ? [computedDeviceId] : [computedDeviceId, canonicalComputedId]
+    }
     private var store: WhoopStore?
 
     /// Daily metrics (recovery/strain/sleep/HRV/RHR…) over the recent window, oldest→newest.
@@ -130,7 +152,7 @@ final class Repository: ObservableObject {
     /// "WHOOP import / NOOP computed / Apple Health" captions instead of a silent merged row.
     @Published private(set) var vitalRows: [SourcedDailyMetric] = []
     /// Monotonic counter bumped on every successful `refresh()`. Intraday-updating views key their
-    /// data load on this so they reload when fresh strap data lands — `today?.day` alone is a stable
+    /// data load on this so they reload when fresh strap data lands , `today?.day` alone is a stable
     /// date string within a day and would freeze e.g. the Today HR trend until the date rolls over.
     @Published private(set) var refreshSeq = 0
 
@@ -152,11 +174,14 @@ final class Repository: ObservableObject {
 
     init(deviceId: String) { self.deviceId = deviceId }
 
-    /// Re-point the read model at the device registry's ACTIVE device id, so the dashboard reads today's
-    /// data under the SAME id the Collector wrote it (#814). Called by AppModel once the registry is wired
-    /// (and again after a device add/activate). Idempotent and best-effort: an empty/unchanged id is a
-    /// no-op, so a single-device install (active id still "my-whoop") never moves and is byte-identical to
-    /// the pre-#814 behaviour. The `computedDeviceId` sibling tracks it automatically (it's derived).
+    /// Re-point the read model's ACTIVE-strap id at the device registry's active device, so a re-added
+    /// strap's LIVE raw (written under its fresh "whoop-<uuid>" id) surfaces on the dashboard (#814).
+    /// Called by AppModel on every registry active-id change. Idempotent + best-effort: an empty/unchanged
+    /// id is a no-op, so a single-device install (active id still "my-whoop") never moves and is byte-
+    /// identical to the pre-#814 behaviour. This moves only the ACTIVE-strap read id; the dashboard reads
+    /// the UNION of it and the canonical "my-whoop" (see `importedReadIds`), so the canonical imported/
+    /// computed history a prior import banked still surfaces too (it is NOT orphaned by the move). The
+    /// import + computed WRITE targets stay STABLE on the canonical id elsewhere, this is read-side only.
     /// Returns true when the id actually changed (so the caller can `refresh()` the now-restapped caches).
     @discardableResult
     func adoptActiveDeviceId(_ id: String) -> Bool {
@@ -172,19 +197,124 @@ final class Repository: ObservableObject {
     func setStoreForTesting(_ s: WhoopStore) { self.store = s }
     #endif
 
-    /// Today's row, by the device's LOGICAL local day — NOT just the newest stored row, which after a
+    // MARK: - Union reads (active strap + canonical)
+    //
+    // Each helper reads the SAME store query across `importedReadIds` (active strap + canonical "my-whoop")
+    // and concatenates the rows, ACTIVE STRAP FIRST. The callers feed the concatenated rows into the SAME
+    // per-day dedup they already used (mergeDaily/mergeSleep key by day; the daily/series facades dedup
+    // explicitly below), so per local-day the active-strap (live/measured) row wins over the canonical
+    // (imported) one and nothing double-counts. A single-device install reads one id (the union collapses).
+
+    /// Daily-metric rows across the imported union for a day range, DEDUPED per day with the ACTIVE STRAP
+    /// winning over the canonical import (a live/measured row beats an imported one for the same day). The
+    /// single returned row per day feeds the existing imported-vs-computed `mergeDaily` unchanged.
+    private func unionDailyMetrics(store: WhoopStore, from: String, to: String) async -> [DailyMetric] {
+        var byDay: [String: DailyMetric] = [:]
+        for id in importedReadIds {   // active strap FIRST → it claims each day, canonical only fills gaps
+            for m in (try? await store.dailyMetrics(deviceId: id, from: from, to: to)) ?? [] where byDay[m.day] == nil {
+                byDay[m.day] = m
+            }
+        }
+        return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// metricSeries points across the imported union for a key + day range, DEDUPED per day with the active
+    /// strap winning (same precedence as `unionDailyMetrics`).
+    private func unionMetricSeries(store: WhoopStore, key: String, from: String, to: String) async -> [MetricPoint] {
+        var byDay: [String: MetricPoint] = [:]
+        for id in importedReadIds {
+            for p in (try? await store.metricSeries(deviceId: id, key: key, from: from, to: to)) ?? [] where byDay[p.day] == nil {
+                byDay[p.day] = p
+            }
+        }
+        return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// Sleep sessions across the imported union for a ts range, keeping ALL sessions per day (a nap + a main
+    /// night both survive) and dropping only EXACT-duplicate blocks (same start+end) recorded under both
+    /// union ids. The downstream `mergeSleep`/`userEditedDays` do the per-day collapse, exactly as before.
+    private func unionSleepSessions(store: WhoopStore, from: Int, to: Int, limit: Int = 4000) async -> [CachedSleepSession] {
+        Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: importedReadIds, from: from, to: to, limit: limit))
+    }
+
+    /// Computed ("-noop") daily-metric rows across the computed union, DEDUPED per day (active strap's
+    /// computed sibling wins over the canonical computed sibling).
+    private func unionComputedDailyMetrics(store: WhoopStore, from: String, to: String) async -> [DailyMetric] {
+        var byDay: [String: DailyMetric] = [:]
+        for id in computedReadIds {
+            for m in (try? await store.dailyMetrics(deviceId: id, from: from, to: to)) ?? [] where byDay[m.day] == nil {
+                byDay[m.day] = m
+            }
+        }
+        return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// Computed ("-noop") sleep sessions across the computed union, keeping ALL sessions per day and dropping
+    /// only EXACT-duplicate blocks recorded under both computed siblings.
+    private func unionComputedSleepSessions(store: WhoopStore, from: Int, to: Int, limit: Int = 4000) async -> [CachedSleepSession] {
+        Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: computedReadIds, from: from, to: to, limit: limit))
+    }
+
+    /// ALL sleep blocks across `ids` for a ts range, concatenated (NOT collapsed to one per day, used by
+    /// `allSleepSessions`, which expands split sleeps). Active strap first.
+    private func unionRawSleepBlocks(store: WhoopStore, ids: [String], from: Int, to: Int, limit: Int = 4000) async -> [CachedSleepSession] {
+        var blocks: [CachedSleepSession] = []
+        for id in ids {
+            blocks += (try? await store.sleepSessions(deviceId: id, from: from, to: to, limit: limit)) ?? []
+        }
+        return blocks
+    }
+
+    /// Drop blocks that share a (startTs, endTs) key, the same physical session recorded under both union
+    /// ids, keeping the first (active strap). Preserves genuinely distinct blocks (naps + main night).
+    nonisolated private static func dedupBlocks(_ blocks: [CachedSleepSession]) -> [CachedSleepSession] {
+        var seen = Set<String>()
+        var out: [CachedSleepSession] = []
+        for b in blocks {
+            let key = "\(b.startTs)-\(b.endTs)"
+            if seen.insert(key).inserted { out.append(b) }
+        }
+        return out
+    }
+
+    /// Drop workout rows that share a (startTs, endTs, sport, source) key, the same session recorded under
+    /// both union device ids, keeping the first (active strap). Distinct sessions are preserved; the
+    /// downstream `dedupCrossSource` still collapses strap-vs-Apple twins by time.
+    nonisolated private static func dedupWorkoutsByNaturalKey(_ rows: [WorkoutRow]) -> [WorkoutRow] {
+        var seen = Set<String>()
+        var out: [WorkoutRow] = []
+        for r in rows {
+            let key = "\(r.startTs)-\(r.endTs)-\(r.sport)-\(r.source)"
+            if seen.insert(key).inserted { out.append(r) }
+        }
+        return out
+    }
+
+    /// Latest HR-sample ts across the imported union, or nil. The auto-land Today anchor (#597) uses this,
+    /// so a re-added strap's live raw AND the canonical history both count toward "the most recent data day".
+    private func unionLatestHRSampleTs(store: WhoopStore) async -> Int? {
+        var latest: Int?
+        for id in importedReadIds {
+            if let ts = (try? await store.latestHRSampleTs(deviceId: id)) ?? nil {
+                latest = max(latest ?? ts, ts)
+            }
+        }
+        return latest
+    }
+
+    /// Today's row, by the device's LOGICAL local day , NOT just the newest stored row, which after a
     /// historical import was months-old data shown as today's hero (issue #23). The logical day rolls at
     /// 04:00 local (see `logicalDayKey`), so between midnight and 4am we keep resolving the prior logical
     /// day's row instead of an empty new-calendar-day row that blanks the dashboard (#144). nil if no row
-    /// for that day yet (the dashboard then shows its empty/pending state). Presentation-only — stored
+    /// for that day yet (the dashboard then shows its empty/pending state). Presentation-only , stored
     /// row keys are untouched.
     ///
     /// Non-UTC pre-04:00 carve-out (#304): a user who falls asleep before midnight and wakes before the
     /// 04:00 rollover has the just-finished night banked under the NEW local calendar day (sleep is keyed
-    /// by the local wake-day — `mergeSleep` / IntelligenceEngine), while `logicalDayKey` still points at
+    /// by the local wake-day , `mergeSleep` / IntelligenceEngine), while `logicalDayKey` still points at
     /// yesterday. Resolving strictly by logical day would then surface the PREVIOUS night. So: if the
     /// local calendar day differs from the logical day AND a row for the local day has a banked night
-    /// (`totalSleepMin != nil`), prefer that row. Otherwise fall back to the logical-day row — which keeps
+    /// (`totalSleepMin != nil`), prefer that row. Otherwise fall back to the logical-day row , which keeps
     /// the #144 anti-blank guard (no night banked yet ⇒ keep yesterday's logical row, never blank).
     var today: DailyMetric? {
         let now = Date()
@@ -204,7 +334,7 @@ final class Repository: ObservableObject {
         }
         return days.last(where: { $0.day == logicalKey })
     }
-    /// The trailing 7 CALENDAR days ending today (for the week strip), oldest→newest — not the last 7
+    /// The trailing 7 CALENDAR days ending today (for the week strip), oldest→newest , not the last 7
     /// stored rows, which on a stale import were old data. ISO yyyy-MM-dd compares chronologically.
     var week: [DailyMetric] {
         let cutoff = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date())
@@ -232,7 +362,7 @@ final class Repository: ObservableObject {
     /// The hour the LOGICAL day rolls (04:00 local). Between midnight and this hour, "Today" stays put.
     nonisolated static let logicalDayRolloverHour = 4
 
-    /// The LOGICAL local day for `now` — the calendar date of `now - rolloverHour hours`. Rolls at
+    /// The LOGICAL local day for `now` , the calendar date of `now - rolloverHour hours`. Rolls at
     /// 04:00 local rather than midnight, so the small hours after midnight still resolve to the prior
     /// calendar date's row instead of an empty new-calendar-day row (#144). Pure + injectable so the
     /// boundary is testable (23:59 → same day, 01:00 → previous day, 04:01 → new day). Presentation-only:
@@ -247,7 +377,7 @@ final class Repository: ObservableObject {
         localDayKey(logicalDay(now, rolloverHour: rolloverHour))
     }
 
-    /// Start of the logical day (its real calendar midnight) for `now`, in `calendar`'s zone — the anchor
+    /// Start of the logical day (its real calendar midnight) for `now`, in `calendar`'s zone , the anchor
     /// for the Today HR-trend window so it spans from the logical day's 00:00 rather than restarting at the
     /// new calendar midnight while we're still showing yesterday's logical day in the small hours (#144).
     static func logicalDayStart(_ now: Date, calendar: Calendar = .current,
@@ -264,7 +394,7 @@ final class Repository: ObservableObject {
         do {
             path = try StorePaths.defaultDatabasePath()
         } catch {
-            NSLog("WhoopStore: ensureStore FAILED resolving DB path — \(error)")
+            NSLog("WhoopStore: ensureStore FAILED resolving DB path , \(error)")
             return nil
         }
         let s: WhoopStore
@@ -272,7 +402,7 @@ final class Repository: ObservableObject {
             s = try await WhoopStore(path: path)
         } catch {
             let ns = error as NSError
-            NSLog("WhoopStore: ensureStore FAILED opening store — \(ns.domain) code=\(ns.code): \(ns.localizedDescription)")
+            NSLog("WhoopStore: ensureStore FAILED opening store , \(ns.domain) code=\(ns.code): \(ns.localizedDescription)")
             return nil
         }
         try? await s.upsertDevice(id: deviceId, mac: nil, name: "WHOOP")
@@ -294,16 +424,19 @@ final class Repository: ObservableObject {
     func dataVolumeSnapshot() async -> DataVolume? {
         guard let store = await ensureStore() else { return nil }
         let dbRows = (try? await store.storageStats().decodedRows) ?? 0
-        // Imported daily-metric rows live under the active strap id (computed scores are merged UNDER them
-        // from `computedDeviceId`). A wide day range covers the full local-history span an import can carry.
-        let imported = (try? await store.dailyMetrics(deviceId: deviceId, from: "0000-01-01", to: "9999-12-31")) ?? []
+        // Imported daily-metric rows live under the UNION of the active strap + the canonical "my-whoop"
+        // (computed scores are merged UNDER them from the computed siblings). A wide day range covers the
+        // full local-history span an import can carry. Union-deduped per day so a re-add's history still counts.
+        let imported = await unionDailyMetrics(store: store, from: "0000-01-01", to: "9999-12-31")
         // Whole recordable epoch in unix seconds [0, ~2^31) so every recorded workout row is counted.
-        let workouts = (try? await store.workouts(deviceId: deviceId, from: 0, to: 4_102_444_800, limit: 1_000_000)) ?? []
+        var workouts: [WorkoutRow] = []
+        for id in importedReadIds { workouts += (try? await store.workouts(deviceId: id, from: 0, to: 4_102_444_800, limit: 1_000_000)) ?? [] }
+        workouts = Self.dedupWorkoutsByNaturalKey(workouts)
         // lastRenderRows = the size of the merged DAILY set the dashboard list/charts actually render: the
         // union of distinct days across the three daily sources (imported strap + on-device computed + Apple)
         // over the full local-history window. This is the read-set whose size drives the post-import list/
         // chart lag (#797) - so the trace pairs frame stats with "how many rows it was rendering over".
-        let computed = (try? await store.dailyMetrics(deviceId: computedDeviceId, from: "0000-01-01", to: "9999-12-31")) ?? []
+        let computed = await unionComputedDailyMetrics(store: store, from: "0000-01-01", to: "9999-12-31")
         let apple = (try? await store.dailyMetrics(deviceId: Self.appleHealthSource, from: "0000-01-01", to: "9999-12-31")) ?? []
         var renderDays = Set<String>()
         for m in imported { renderDays.insert(m.day) }
@@ -314,7 +447,7 @@ final class Repository: ObservableObject {
     }
 
     /// Checkpoint the WAL into the main DB file if the store is already open, so a file-level
-    /// backup captures everything. No-op (returns false) if no handle exists yet — the caller
+    /// backup captures everything. No-op (returns false) if no handle exists yet , the caller
     /// then copies the on-disk files as-is, which still includes the -wal sidecar.
     func checkpointForBackup() async -> Bool {
         guard let store else { return false }
@@ -342,7 +475,7 @@ final class Repository: ObservableObject {
     /// ran on the MAIN actor over thousands of rows, and (2) `refreshSeq` bumped UNCONDITIONALLY, so every
     /// bump re-fired `TodayView.loadAll()` (~28 sequential reads + 28 @State writes) even when nothing
     /// changed. Now the sorts run in a detached task and the merged result is DIFFED against the current
-    /// caches — when nothing changed we skip BOTH the re-publish and the `refreshSeq` bump, so the redundant
+    /// caches , when nothing changed we skip BOTH the re-publish and the `refreshSeq` bump, so the redundant
     /// tail refreshes don't each detonate a full Today reload. The "one consistent publish per refresh"
     /// guarantee is kept: on a real change every prop + the seq are assigned in ONE main-actor batch.
     /// Monotonic ordering token (#review): refresh() now suspends on an off-actor merge between the store
@@ -362,18 +495,21 @@ final class Repository: ObservableObject {
         let nowTs = Int(now.timeIntervalSince1970)
         let lo = nowTs - nDays * 86_400, hi = nowTs + 86_400
 
-        let imported = (try? await store.dailyMetrics(deviceId: deviceId, from: fromDay, to: toDay)) ?? []
-        let computed = (try? await store.dailyMetrics(deviceId: computedDeviceId, from: fromDay, to: toDay)) ?? []
+        // UNION the active strap (live raw, #814) with the canonical "my-whoop" import so a re-added strap's
+        // live data AND the canonical history both surface, deduped per day (active strap wins). Collapses to
+        // a single id on a single-device install (byte-identical to before).
+        let imported = await unionDailyMetrics(store: store, from: fromDay, to: toDay)
+        let computed = await unionComputedDailyMetrics(store: store, from: fromDay, to: toDay)
         let apple = (try? await store.dailyMetrics(deviceId: Self.appleHealthSource, from: fromDay, to: toDay)) ?? []
-        let impSleep = (try? await store.sleepSessions(deviceId: deviceId, from: lo, to: hi, limit: 4000)) ?? []
-        let compSleep = (try? await store.sleepSessions(deviceId: computedDeviceId, from: lo, to: hi, limit: 4000)) ?? []
+        let impSleep = await unionSleepSessions(store: store, from: lo, to: hi)
+        let compSleep = await unionComputedSleepSessions(store: store, from: lo, to: hi)
 
         // Export-verbatim sleep figures (long-format metricSeries rows from WhoopImporter).
         // SleepView prefers these per day over its APPROXIMATE recomputations.
-        let perf = (try? await store.metricSeries(deviceId: deviceId, key: "sleep_performance", from: fromDay, to: toDay)) ?? []
-        let cons = (try? await store.metricSeries(deviceId: deviceId, key: "sleep_consistency", from: fromDay, to: toDay)) ?? []
-        let need = (try? await store.metricSeries(deviceId: deviceId, key: "sleep_need_min", from: fromDay, to: toDay)) ?? []
-        let debt = (try? await store.metricSeries(deviceId: deviceId, key: "sleep_debt_min", from: fromDay, to: toDay)) ?? []
+        let perf = await unionMetricSeries(store: store, key: "sleep_performance", from: fromDay, to: toDay)
+        let cons = await unionMetricSeries(store: store, key: "sleep_consistency", from: fromDay, to: toDay)
+        let need = await unionMetricSeries(store: store, key: "sleep_need_min", from: fromDay, to: toDay)
+        let debt = await unionMetricSeries(store: store, key: "sleep_debt_min", from: fromDay, to: toDay)
 
         // Merge + sort OFF the main actor (FIX 3): the figures build, the two O(n log n) daily/sleep merges,
         // the source-row sort, and the freshness counts are all pure over the rows just read, so they run in
@@ -403,7 +539,7 @@ final class Repository: ObservableObject {
         guard myGen == refreshGen else { return }
 
         // DIFF before publishing (FIX 3): if this refresh produced byte-identical caches AND we've already
-        // loaded once, skip the re-publish and the `refreshSeq` bump entirely — assigning an equal value to
+        // loaded once, skip the re-publish and the `refreshSeq` bump entirely , assigning an equal value to
         // an @Published prop still fires objectWillChange, so the skip must cover the assignments too. This
         // is what stops the analyze-tail's burst of refresh() calls each re-firing TodayView.loadAll().
         let unchanged = loaded
@@ -448,7 +584,7 @@ final class Repository: ObservableObject {
     ///
     /// H5 (#509): a day in `userEditedDays` is one the user hand-edited the sleep of (a corrected
     /// bed/wake time, an added nap, a deleted night). For those days the COMPUTED row's SLEEP fields
-    /// take precedence over the import — otherwise a re-imported WHOOP/Apple night would silently mask
+    /// take precedence over the import , otherwise a re-imported WHOOP/Apple night would silently mask
     /// the user's correction. Non-sleep fields (recovery/strain/HRV/RHR/activity…) still follow the
     /// normal imports-win merge, and every NON-edited day is unchanged.
     nonisolated static func mergeDaily(imported: [DailyMetric], computed: [DailyMetric],
@@ -468,7 +604,7 @@ final class Repository: ObservableObject {
         return byDay.values.sorted { $0.day < $1.day }
     }
 
-    /// The set of LOCAL wake-days that carry a user-edited sleep session — keyed exactly as
+    /// The set of LOCAL wake-days that carry a user-edited sleep session , keyed exactly as
     /// `DailyMetric.day` is (the engine's cached-offset local-day keyer, matching `mergeSleep.endDay`).
     /// Drives the H5 edit-merge precedence in `mergeDaily`.
     nonisolated static func userEditedDays(_ sessions: [CachedSleepSession]) -> Set<String> {
@@ -481,7 +617,7 @@ final class Repository: ObservableObject {
     }
 
     /// Daily rows tagged with the source that supplied them, for the source-aware vital-sign cards.
-    /// One entry per (source, day) — the consumer resolves precedence per metric (imported > computed
+    /// One entry per (source, day) , the consumer resolves precedence per metric (imported > computed
     /// > Apple); ordered by day, then source priority, so a stable list reaches the UI.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func sourceRows(imported: [DailyMetric], computed: [DailyMetric],
@@ -498,8 +634,8 @@ final class Repository: ObservableObject {
     }
 
     /// Same precedence for sleep sessions, keyed by the day the night ends on.
-    /// Keys through `AnalyticsEngine.dayString(_:offsetSec:)` — the canonical LOCAL-day keyer
-    /// `analyzeDay` attributes sessions with — NOT the unzoned `Repository.dayFormatter`, which formats
+    /// Keys through `AnalyticsEngine.dayString(_:offsetSec:)` , the canonical LOCAL-day keyer
+    /// `analyzeDay` attributes sessions with , NOT the unzoned `Repository.dayFormatter`, which formats
     /// in whatever the live device zone is and so disagreed with the engine's cached-offset attribution
     /// across a midnight boundary for non-UTC users (the Swift half of #406; mirrors the Android #304 fix
     /// pinned by MergeSleepLocalDayTest).
@@ -518,20 +654,32 @@ final class Repository: ObservableObject {
 
     func dailyMetrics(fromDay: String, toDay: String) async -> [DailyMetric] {
         guard let store = await ensureStore() else { return [] }
-        return (try? await store.dailyMetrics(deviceId: deviceId, from: fromDay, to: toDay)) ?? []
+        return await unionDailyMetrics(store: store, from: fromDay, to: toDay)
     }
 
     func hrSamples(from: Int, to: Int, limit: Int = 8000) async -> [HRSample] {
         guard let store = await ensureStore() else { return [] }
-        return (try? await store.hrSamples(deviceId: deviceId, from: from, to: to, limit: limit)) ?? []
+        // UNION the active strap + canonical so the HR trend renders whether the landed day's raw sits under
+        // the re-added strap (live) or the canonical history. Deduped by ts (active strap wins) so an overlap
+        // never double-counts; sorted ascending. Single-device install reads one id (byte-identical).
+        guard deviceId != canonicalDeviceId else {
+            return (try? await store.hrSamples(deviceId: deviceId, from: from, to: to, limit: limit)) ?? []
+        }
+        var byTs: [Int: HRSample] = [:]
+        for id in importedReadIds {
+            for s in (try? await store.hrSamples(deviceId: id, from: from, to: to, limit: limit)) ?? [] where byTs[s.ts] == nil {
+                byTs[s.ts] = s
+            }
+        }
+        return byTs.values.sorted { $0.ts < $1.ts }
     }
 
     /// Logical day-start of the most recent day the active device has HR data for, or nil when the store is
     /// empty. Lets the Deep Timeline open on a day that actually has data instead of a possibly-empty today
-    /// right after a history sync — the #597 root cause (the timeline was today-only with no way back).
+    /// right after a history sync , the #597 root cause (the timeline was today-only with no way back).
     func latestDataDayStart() async -> Date? {
         guard let store = await ensureStore() else { return nil }
-        guard let ts = (try? await store.latestHRSampleTs(deviceId: deviceId)) ?? nil else { return nil }
+        guard let ts = await unionLatestHRSampleTs(store: store) else { return nil }
         return Self.logicalDayStart(Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 
@@ -539,22 +687,34 @@ final class Repository: ObservableObject {
     /// Aggregated in SQL so a full day never loads the raw ~1 Hz rows.
     func hrBuckets(from: Int, to: Int, bucketSeconds: Int = 300) async -> [HRBucket] {
         guard let store = await ensureStore() else { return [] }
-        return (try? await store.hrBuckets(deviceId: deviceId, from: from, to: to, bucketSeconds: bucketSeconds)) ?? []
+        // UNION the active strap + canonical for the trend chart. Per bucket-start the active strap wins; a
+        // raw HR window almost never overlaps between the two namespaces (different time periods), so the
+        // per-bucket mean stays faithful. Single-device install reads one id (byte-identical).
+        guard deviceId != canonicalDeviceId else {
+            return (try? await store.hrBuckets(deviceId: deviceId, from: from, to: to, bucketSeconds: bucketSeconds)) ?? []
+        }
+        var byStart: [Int: HRBucket] = [:]
+        for id in importedReadIds {
+            for b in (try? await store.hrBuckets(deviceId: id, from: from, to: to, bucketSeconds: bucketSeconds)) ?? [] where byStart[b.ts] == nil {
+                byStart[b.ts] = b
+            }
+        }
+        return byStart.values.sorted { $0.ts < $1.ts }
     }
 
     func sleepSessions(from: Int, to: Int, limit: Int = 100) async -> [CachedSleepSession] {
         guard let store = await ensureStore() else { return [] }
-        return (try? await store.sleepSessions(deviceId: deviceId, from: from, to: to, limit: limit)) ?? []
+        return await unionSleepSessions(store: store, from: from, to: to, limit: limit)
     }
 
-    /// Every sleep BLOCK across BOTH sources, UN-deduplicated — so a split-sleep day (a nap
+    /// Every sleep BLOCK across BOTH sources, UN-deduplicated , so a split-sleep day (a nap
     /// + a main sleep, or any night recorded as multiple blocks) keeps ALL of its blocks.
     /// `sleeps` collapses each day to a single winner for the dashboard; this does not.
     ///
     /// Crucially this reads the on-device COMPUTED source (`computedDeviceId`) directly, not
     /// just the imported `deviceId`. A Bluetooth-only user (no WHOOP/Apple-Health import) has
     /// every block under the computed source, so a loader that only un-dedupes the imported
-    /// device sees nothing to expand and silently falls back to the deduped one-per-day list —
+    /// device sees nothing to expand and silently falls back to the deduped one-per-day list ,
     /// hiding the day's extra blocks. Imported blocks still win on any day they cover (matching
     /// the dashboard's imported-wins merge); computed blocks fill days with no import.
     /// Oldest→newest by onset.
@@ -562,8 +722,11 @@ final class Repository: ObservableObject {
         guard let store = await ensureStore() else { return [] }
         let now = Int(Date().timeIntervalSince1970)
         let lo = now - days * 86_400, hi = now + 86_400
-        let imported = (try? await store.sleepSessions(deviceId: deviceId, from: lo, to: hi, limit: 4000)) ?? []
-        let computed = (try? await store.sleepSessions(deviceId: computedDeviceId, from: lo, to: hi, limit: 4000)) ?? []
+        // UNION the active strap + canonical (imported) and their computed siblings, keeping ALL blocks (not
+        // one per day, this view expands split sleeps), but dropping any block that appears under BOTH union
+        // ids (same start+end key) so a day present in both namespaces isn't double-listed.
+        let imported = Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: importedReadIds, from: lo, to: hi))
+        let computed = Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: computedReadIds, from: lo, to: hi))
         let cal = Calendar.current
         func endDay(_ s: CachedSleepSession) -> Date {
             cal.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(s.endTs)))
@@ -576,7 +739,7 @@ final class Repository: ObservableObject {
 
     /// The persisted per-epoch MOTION series for each of `starts` (detected session start keys), keyed by
     /// start (#407). Motion is written ONLY under the computed ("-noop") source by the engine, so we read
-    /// there — and an imported-only night (no computed twin) simply has no motion (absent stays absent, an
+    /// there , and an imported-only night (no computed twin) simply has no motion (absent stays absent, an
     /// honest empty state, never a fabricated zero array). This does NOT resolve the night: the caller has
     /// already chosen the main-night GROUP (the 6.1.1 bridged group) and passes those blocks' starts; we
     /// only fetch each one's stored series so the Sleep tab can lay them along the hypnogram's timeline.
@@ -594,10 +757,10 @@ final class Repository: ObservableObject {
 
     /// The user's learned habitual midsleep (local time-of-day seconds), or nil under
     /// `SleepStageTotals.habitualMinDays` of history (cold-start). Computed EXACTLY as
-    /// `IntelligenceEngine.computeHabitualMidsleep` does — the SAME raw imported + computed ("-noop")
+    /// `IntelligenceEngine.computeHabitualMidsleep` does , the SAME raw imported + computed ("-noop")
     /// sleep-session union, one `HistoryBlock` per session (effective bounds, dayKey = the LOCAL calendar
     /// day of the midpoint), deferring to the SAME shared `SleepStageTotals.habitualMidsleepSec` pure
-    /// function — so the Sleep tab's main-night pick aligns to the same value the analytics rollup used.
+    /// function , so the Sleep tab's main-night pick aligns to the same value the analytics rollup used.
     /// The whole point of #547: the UI hero and the analytics daily total resolve to the SAME block for a
     /// shift/late sleeper, not just at cold-start. Reads a wide window so the distinct-day count comfortably
     /// clears the threshold; `habitualMidsleepSec` keeps the longest block per day, so window/order/source
@@ -606,8 +769,10 @@ final class Repository: ObservableObject {
         guard let store = await ensureStore() else { return nil }
         let now = Int(Date().timeIntervalSince1970)
         let lo = now - days * 86_400, hi = now + 86_400
-        let imported = (try? await store.sleepSessions(deviceId: deviceId, from: lo, to: hi, limit: 4000)) ?? []
-        let computed = (try? await store.sleepSessions(deviceId: computedDeviceId, from: lo, to: hi, limit: 4000)) ?? []
+        // UNION active strap + canonical (imported) and their computed siblings, de-duplicating identical
+        // blocks recorded under both ids so a day present in both namespaces doesn't double-weight the learner.
+        let imported = Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: importedReadIds, from: lo, to: hi))
+        let computed = Self.dedupBlocks(await unionRawSleepBlocks(store: store, ids: computedReadIds, from: lo, to: hi))
         let offsetSec = TimeZone.current.secondsFromGMT()
         let blocks = (imported + computed).compactMap { s -> SleepStageTotals.HistoryBlock? in
             let start = s.effectiveStartTs, end = s.endTs
@@ -623,10 +788,10 @@ final class Repository: ObservableObject {
     /// detected key; the corrected onset is stored in `startTsAdjusted` so the key never moves (the
     /// recompute guard + daily override keep matching on it). The merged session list carries no source
     /// deviceId (same reason as the journal reads below), so this applies under BOTH the imported and
-    /// computed sources — only the namespace that holds the night updates; the other is a no-op.
+    /// computed sources , only the namespace that holds the night updates; the other is a no-op.
     ///
     /// Stages are **re-derived from the raw streams** for the corrected `[newStartTs, newEndTs]` window
-    /// via `SleepStager.stageSession` — exactly what WHOOP does, so extending a boundary recovers real
+    /// via `SleepStager.stageSession` , exactly what WHOOP does, so extending a boundary recovers real
     /// stages instead of a fabricated "awake" block. Only when the night has no raw data (an imported
     /// night) does it fall back to reshaping the stored summary (`SleepWindowReclip`). Refreshes so the
     /// hero re-reads the corrected night immediately.
@@ -636,13 +801,13 @@ final class Repository: ObservableObject {
         // Re-derive stages from the raw streams for the corrected window; fall back to reshaping the
         // stored summary when the strap has no dense data there yet. The fallback fires for a genuine
         // imported night (no strap data at all) AND for the transient case where the user edits BEFORE
-        // a sync has imported this window — the latter then self-heals on the next post-sync
+        // a sync has imported this window , the latter then self-heals on the next post-sync
         // `analyzeRecent` (see `selfHealEditedStages`), which re-derives the real stages once raw lands.
         let stagesJSON = await restageFromRaw(start: newStartTs, end: newEndTs)
             ?? SleepWindowReclip.reclip(stagesJSON: storedStagesJSON, sessionStart: detectedStartTs,
                                         oldEnd: oldEndTs, newEnd: newEndTs)
         // Apply to the source that actually OWNS this block. Try the computed source first; only fall
-        // back to the imported source when no computed row matched — so we never edit a coincidental
+        // back to the imported source when no computed row matched , so we never edit a coincidental
         // same-startTs row in the other namespace (which the old unconditional double-write could do).
         let computedChanged = (try? await store.applySleepEdit(
             deviceId: computedDeviceId, detectedStartTs: detectedStartTs,
@@ -655,19 +820,19 @@ final class Repository: ObservableObject {
         await refresh()
     }
 
-    /// Delete ONE sleep session — the `editSleepTimes` path minus the re-stage/re-insert, so the user can
+    /// Delete ONE sleep session , the `editSleepTimes` path minus the re-stage/re-insert, so the user can
     /// clear a misread or spurious night and the day recomputes as if it were never recorded (#68; Android
-    /// parity — `WhoopRepository.deleteSleepSession`). `detectedStartTs` is the immutable detected key
+    /// parity , `WhoopRepository.deleteSleepSession`). `detectedStartTs` is the immutable detected key
     /// (`startTs`); `endTs` is the night's span, recorded in the tombstone so the engine's overlap test
     /// suppresses a re-detected onset that drifts second-to-second.
     ///
     /// Two durable effects, mirroring the workout-dismiss path:
-    ///  1. delete the row from whichever namespace OWNS it — try the computed source first, fall back to
+    ///  1. delete the row from whichever namespace OWNS it , try the computed source first, fall back to
     ///     the imported `deviceId` only when no computed row matched, exactly as `editSleepTimes` applies
     ///     its edit (the merged session list carries no source deviceId, so we resolve the owner here and
     ///     never delete a coincidental same-startTs row in the other namespace);
     ///  2. persist a `dismissedSleep` span in UserDefaults so the next `analyzeRecent` re-detection doesn't
-    ///     simply regenerate the night — the engine's sleep guard now skips any re-detected session
+    ///     simply regenerate the night , the engine's sleep guard now skips any re-detected session
     ///     overlapping a dismissed span (just as the dismissed-WORKOUT spans hide a re-derived bout).
     /// Refreshes so the hero re-reads without the deleted night immediately.
     func deleteSleepSession(detectedStartTs: Int, endTs: Int) async {
@@ -676,7 +841,7 @@ final class Repository: ObservableObject {
         var spans = dismissedSleepSpans
         let token = "\(detectedStartTs):\(endTs)"
         if !spans.contains(token) { spans.append(token); dismissedSleepSpans = spans }
-        // Delete from the namespace that actually owns the row — computed first, imported as a fallback.
+        // Delete from the namespace that actually owns the row , computed first, imported as a fallback.
         let computedDeleted = (try? await store.deleteSleepSession(
             deviceId: computedDeviceId, startTs: detectedStartTs)) ?? 0
         if computedDeleted == 0 {
@@ -687,7 +852,7 @@ final class Repository: ObservableObject {
 
     /// Durable "user deleted this night" tombstones as "startTs:endTs" strings, persisted in UserDefaults
     /// (the macOS `CachedSleepSession` lives in the WhoopStore Journal file, which this layer must not
-    /// extend with a new table — the same reason dismissed WORKOUT spans live here, not in the DB). The
+    /// extend with a new table , the same reason dismissed WORKOUT spans live here, not in the DB). The
     /// re-detector in `IntelligenceEngine.analyzeRecent` consults `dismissedSleepWindows` so a deleted
     /// night that re-detects stays gone. (#68; Android twin: the `dismissedSleep` Room table.)
     private var dismissedSleepSpans: [String] {
@@ -708,13 +873,13 @@ final class Repository: ObservableObject {
         }
     }
 
-    /// Manually ADD a missed sleep session — typically a daytime NAP the detector didn't pick up (#508).
+    /// Manually ADD a missed sleep session , typically a daytime NAP the detector didn't pick up (#508).
     /// Stages it from the raw streams over `[startTs, endTs]` (exactly the editing path's `restageFromRaw`),
-    /// falling back to a single "awake" block when the strap has no dense data there yet — the post-sync
+    /// falling back to a single "awake" block when the strap has no dense data there yet , the post-sync
     /// self-heal then swaps in real stages once the raw lands. Written under the COMPUTED source as its OWN
     /// separate session row with `userEdited = 1`, so the recompute overlap guard preserves it and it is
     /// NEVER folded into the night's main sleep (which would mislabel awake daytime as light sleep). Purely
-    /// additive — `insertManualSleepSession` no-ops if a session already exists at that exact onset.
+    /// additive , `insertManualSleepSession` no-ops if a session already exists at that exact onset.
     func addManualNap(startTs: Int, endTs: Int) async {
         guard let store = await ensureStore(), endTs > startTs else { return }
         // Stage from raw over the chosen window; fall back to a single awake block when the strap has no
@@ -748,11 +913,11 @@ final class Repository: ObservableObject {
     }
 
     /// Re-derive stages from the raw streams for `[start, end]` (read under the strap `deviceId`),
-    /// returning the encoded `stagesJSON`, or `nil` when the strap does NOT densely cover the window —
+    /// returning the encoded `stagesJSON`, or `nil` when the strap does NOT densely cover the window ,
     /// i.e. there isn't enough worn-night data to stage (a couple of stray samples must not trigger a
     /// degenerate `stageSession` that overwrites a good breakdown). ~1 sample / 2 min is the floor.
     /// Extracted from `editSleepTimes` so the post-sync self-heal reuses the exact density gate +
-    /// staging. Stages OFF the main actor — Repository is `@MainActor` and a multi-hour window is tens of
+    /// staging. Stages OFF the main actor , Repository is `@MainActor` and a multi-hour window is tens of
     /// thousands of samples, which would otherwise freeze the UI.
     private func restageFromRaw(start: Int, end: Int) async -> String? {
         guard let store = await ensureStore() else { return nil }
@@ -767,7 +932,7 @@ final class Repository: ObservableObject {
         // Opt-in experimental staging (Settings → Experimental · Sleep staging): when the user has flipped
         // the V2 flag on, re-stage with the cardiorespiratory recipe `SleepStagerV2`; otherwise the default
         // V1 `SleepStager`. Read once here off the actor; the switch is purely which engine runs over the
-        // already-detected window — V1 stays the default and is untouched. (V7 Pillar 3b)
+        // already-detected window , V1 stays the default and is untouched. (V7 Pillar 3b)
         let useV2 = PuffinExperiment.experimentalSleepV2Enabled
         let segs = await Task.detached(priority: .utility) {
             useV2
@@ -779,13 +944,13 @@ final class Repository: ObservableObject {
 
     /// Self-heal pass for the edit-races-sync bug. A night edited BEFORE the strap sync imported its raw
     /// streams got fabricated `SleepWindowReclip` stages (a trailing "awake" block) at edit time, and the
-    /// `userEdited` flag then froze that breakdown against every later sync. Here — invoked from
-    /// `analyzeRecent`, which runs after each sync backfill — we re-derive stages from the now-available
+    /// `userEdited` flag then froze that breakdown against every later sync. Here , invoked from
+    /// `analyzeRecent`, which runs after each sync backfill , we re-derive stages from the now-available
     /// raw over each edited night's LOCKED bounds and rewrite the stage breakdown ONLY, never the user's
     /// bed/wake correction. Idempotent: a night already staged from raw re-derives to the same JSON
     /// (equality-skip, no write); a night edited-too-early heals the moment its raw arrives; a true
     /// imported night (raw never dense) is left untouched (`restageFromRaw` returns nil). Reads/writes the
-    /// COMPUTED source — the same one `analyzeRecent` reads edited rows from. Returns the (possibly
+    /// COMPUTED source , the same one `analyzeRecent` reads edited rows from. Returns the (possibly
     /// refreshed) edited rows so the caller recomputes daily aggregates from the corrected stages.
     func selfHealEditedStages(from windowStart: Int, to windowEnd: Int) async -> [CachedSleepSession] {
         guard let store = await ensureStore() else { return [] }
@@ -799,7 +964,7 @@ final class Repository: ObservableObject {
         var healed = false
         for row in edited {
             // Re-derive over the LOCKED corrected window (effective onset → wake). Skip when the raw
-            // isn't dense yet, or when the result already matches what's stored (steady state — no write).
+            // isn't dense yet, or when the result already matches what's stored (steady state , no write).
             guard let newJSON = await restageFromRaw(start: row.effectiveStartTs, end: row.endTs),
                   newJSON != row.stagesJSON else { continue }
             let n = (try? await store.updateSleepStages(deviceId: computedDeviceId,
@@ -813,19 +978,27 @@ final class Repository: ObservableObject {
     // MARK: - Metric explorer reads (generic substrate)
 
     /// Daily series for any metric key from a given source ("my-whoop" / "apple-health").
+    /// When `source` is the canonical WHOOP id, UNION the active strap so a series stored under a re-added
+    /// strap's id ("whoop-<uuid>") still surfaces alongside the canonical history (deduped per day, active
+    /// strap wins). Other sources (apple-health / xiaomi-band / lab-book) read that source verbatim.
     func series(key: String, source: String, days: Int = 4000) async -> [(day: String, value: Double)] {
         guard let store = await ensureStore() else { return [] }
         let now = Date()
         let from = Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
         let to = Self.dayString(now.addingTimeInterval(86_400))
-        let pts = (try? await store.metricSeries(deviceId: source, key: key, from: from, to: to)) ?? []
+        let pts: [MetricPoint]
+        if source == canonicalDeviceId {
+            pts = await unionMetricSeries(store: store, key: key, from: from, to: to)
+        } else {
+            pts = (try? await store.metricSeries(deviceId: source, key: key, from: from, to: to)) ?? []
+        }
         return pts.map { ($0.day, $0.value) }
     }
 
-    // MARK: - Deep Timeline (full-day full-resolution viewer — #575/#574/#582)
+    // MARK: - Deep Timeline (full-day full-resolution viewer , #575/#574/#582)
     //
     // The Deep Timeline draws a single metric across a zoomable time window at the resolution the zoom
-    // demands: a whole day reads COARSE SQL buckets (a worn 24h is ~86k 1 Hz HR rows — drawing all of
+    // demands: a whole day reads COARSE SQL buckets (a worn 24h is ~86k 1 Hz HR rows , drawing all of
     // them is the #1 risk, so we never load raw at day scale), while a zoomed-in window reads the RAW
     // per-second rows so the user can inspect real beats. The adaptive choice lives here in the read
     // layer (NOT the view) so the chart only ever receives ~targetPoints points regardless of zoom.
@@ -893,34 +1066,52 @@ final class Repository: ObservableObject {
     /// `source` (defaults to the user's own strap), choosing raw seconds vs coarse buckets adaptively so
     /// the chart never draws ~86k points (the #575 day-scale risk). HR rides the existing COALESCE reads
     /// (`hrBuckets`/`hrSamples`) so a PPG-only WHOOP 5 day still renders its ppgHrSample series (#156/#172)
-    /// — at day scale `hrBuckets` averages PPG into its buckets, and zoomed-in `hrSamples` returns the raw
+    /// , at day scale `hrBuckets` averages PPG into its buckets, and zoomed-in `hrSamples` returns the raw
     /// PPG-derived seconds; neither is empty for a PPG-only night. Other metrics read their raw sample
     /// tables (low frequency, no 86k risk) and bin to the same bucket grid when zoomed out.
     func timelineSeries(metric: TimelineMetric, from: Int, to: Int,
                         targetPoints: Int = 600, source: String? = nil) async -> TimelineSeries {
         guard to > from, let store = await ensureStore() else { return .empty }
-        let src = source ?? deviceId
+        // Default (no explicit source) → the user's own strap, UNIONed with the canonical "my-whoop" so the
+        // Deep Timeline renders whether the landed day's raw sits under the re-added strap or the canonical
+        // history. An explicit source (a per-source page) reads that source verbatim. `unionIds` is one id
+        // on a single-device install (byte-identical) and dedups raw by ts (active strap wins).
+        let unionIds: [String] = source.map { [$0] } ?? importedReadIds
         let bucket = Self.timelineBucketSeconds(spanSeconds: to - from, targetPoints: targetPoints)
         let isRaw = bucket <= 1
 
         if metric == .hr {
-            // Both HR paths COALESCE measured + ppgHrSample (#156) — preserved by delegating to the
+            // Both HR paths COALESCE measured + ppgHrSample (#156) , preserved by delegating to the
             // store reads rather than re-querying. Day scale → SQL-aggregated buckets; zoomed-in → raw.
             if isRaw {
-                let s = (try? await store.hrSamples(deviceId: src, from: from, to: to, limit: 200_000)) ?? []
-                return TimelineSeries(points: s.map {
+                var byTs: [Int: HRSample] = [:]
+                for id in unionIds {
+                    for s in (try? await store.hrSamples(deviceId: id, from: from, to: to, limit: 200_000)) ?? [] where byTs[s.ts] == nil { byTs[s.ts] = s }
+                }
+                return TimelineSeries(points: byTs.values.sorted { $0.ts < $1.ts }.map {
                     TrendPoint(date: Date(timeIntervalSince1970: TimeInterval($0.ts)), value: Double($0.bpm))
                 }, isRaw: true, bucketSeconds: 1)
             }
-            let b = (try? await store.hrBuckets(deviceId: src, from: from, to: to, bucketSeconds: bucket)) ?? []
-            return TimelineSeries(points: b.map {
+            var byStart: [Int: HRBucket] = [:]
+            for id in unionIds {
+                for b in (try? await store.hrBuckets(deviceId: id, from: from, to: to, bucketSeconds: bucket)) ?? [] where byStart[b.ts] == nil { byStart[b.ts] = b }
+            }
+            return TimelineSeries(points: byStart.values.sorted { $0.ts < $1.ts }.map {
                 TrendPoint(date: Date(timeIntervalSince1970: TimeInterval($0.ts)), value: $0.bpm)
             }, isRaw: false, bucketSeconds: bucket)
         }
 
         // Non-HR streams: read raw rows (these tables are far sparser than 1 Hz HR, so a day's worth is
         // safe to load) and, when zoomed out, downsample to the bucket grid in-process for a clean line.
-        let raw = await timelineRawMetric(metric: metric, store: store, source: src, from: from, to: to)
+        var raw: [TrendPoint] = []
+        var seenTs = Set<Int>()
+        for id in unionIds {
+            for p in await timelineRawMetric(metric: metric, store: store, source: id, from: from, to: to) {
+                let ts = Int(p.date.timeIntervalSince1970)
+                if seenTs.insert(ts).inserted { raw.append(p) }
+            }
+        }
+        raw.sort { $0.date < $1.date }
         guard !raw.isEmpty else { return TimelineSeries(points: [], isRaw: isRaw, bucketSeconds: bucket) }
         if isRaw { return TimelineSeries(points: raw, isRaw: true, bucketSeconds: 1) }
         return TimelineSeries(points: Self.downsampleToBuckets(raw, bucketSeconds: bucket),
@@ -1057,9 +1248,15 @@ final class Repository: ObservableObject {
         }
 
         if preferredSource == whoopSource || preferredSource == actualWhoopSource {
+            // Active strap first (live/measured wins per day), then the CANONICAL "my-whoop" import + its
+            // computed sibling so history banked under the canonical id before a re-add still resolves (the
+            // union model). `uniqued` collapses these to one pair on a single-device install (active ==
+            // canonical), so that path is byte-identical. Apple is the final cross-source fallback.
             var candidates = [
                 MetricSourceCandidate(source: actualWhoopSource, key: key),
                 MetricSourceCandidate(source: computedSource, key: key),
+                MetricSourceCandidate(source: whoopSource, key: key),
+                MetricSourceCandidate(source: whoopSource + "-noop", key: key),
             ]
             if let appleKey = appleCompatibleKey(forWhoopKey: key) {
                 candidates.append(MetricSourceCandidate(source: appleHealthSource, key: appleKey))
@@ -1068,7 +1265,7 @@ final class Repository: ObservableObject {
         }
         if preferredSource == appleHealthSource {
             var candidates = [MetricSourceCandidate(source: appleHealthSource, key: key)]
-            // Health Connect is an Apple-equivalent body-metric source (Android only — harmless no-op on
+            // Health Connect is an Apple-equivalent body-metric source (Android only , harmless no-op on
             // iOS/Mac, which never write a "health-connect" series). Kept here so the resolver is
             // byte-identical to Android's, where it makes a Health-Connect-only weight history resolve in
             // Compare (#443). A real Apple export still wins per day; HC fills the rest.
@@ -1081,7 +1278,7 @@ final class Repository: ObservableObject {
         return [MetricSourceCandidate(source: preferredSource, key: key)]
     }
 
-    /// The Apple-Health series key that carries the SAME physiological quantity as a WHOOP key — used
+    /// The Apple-Health series key that carries the SAME physiological quantity as a WHOOP key , used
     /// only for the declared-compatible vitals; nil means "no Apple equivalent, don't fall back to it".
     static func appleCompatibleKey(forWhoopKey key: String) -> String? {
         switch key {
@@ -1097,7 +1294,7 @@ final class Repository: ObservableObject {
     }
 
     /// Whether the NOOP-computed strap source may fill an Apple-preferred metric. Only the two daily
-    /// totals the strap genuinely estimates (steps, calories) — never a derived WHOOP score.
+    /// totals the strap genuinely estimates (steps, calories) , never a derived WHOOP score.
     private static func noopComputedCanFillAppleMetric(_ key: String) -> Bool {
         switch key {
         case "steps", "active_kcal": return true
@@ -1107,13 +1304,13 @@ final class Repository: ObservableObject {
 
     /// The Explore read path (#199). Like `series(key:source:)` but, for the strap source
     /// ("my-whoop"), falls back to the on-device COMPUTED dailies a Bluetooth-only WHOOP 5 user
-    /// has (no CSV/Health import) — so Charge/Rest/Effort/Health metrics still resolve. Three layers,
+    /// has (no CSV/Health import) , so Charge/Rest/Effort/Health metrics still resolve. Three layers,
     /// imported-wins per day:
     ///  1. the imported metricSeries under `deviceId` (a real WHOOP export);
-    ///  2. the COMPUTED metricSeries under `computedDeviceId` — for keys written there but absent from
+    ///  2. the COMPUTED metricSeries under `computedDeviceId` , for keys written there but absent from
     ///     the DailyMetric columns (notably `sleep_performance`, IntelligenceEngine's Rest composite);
     ///  3. the merged daily metrics (`self.days`, imported ∪ computed) for keys with a DailyMetric
-    ///     column — the same key→column map InsightsView.dailyOutcome / Android's dailyPick use,
+    ///     column , the same key→column map InsightsView.dailyOutcome / Android's dailyPick use,
     ///     extended to the full daily column set.
     /// Any OTHER source (apple-health / nutrition-csv / noop-mood) reads only its own series, unchanged.
     func exploreSeries(key: String, source: String, days: Int = 4000) async -> [(day: String, value: Double)] {
@@ -1132,12 +1329,17 @@ final class Repository: ObservableObject {
         for d in self.days where byDay[d.day] == nil {
             if let v = Self.dailyColumn(key: key, day: d) { byDay[d.day] = v }
         }
-        // Layer 2: computed metricSeries (covers sleep_performance, which has no daily column).
-        let computedPts = (try? await store.metricSeries(deviceId: computedDeviceId, key: key, from: from, to: to)) ?? []
-        for p in computedPts { byDay[p.day] = p.value }
-        // Layer 1 (highest): the imported export's metricSeries.
-        let importedPts = (try? await store.metricSeries(deviceId: deviceId, key: key, from: from, to: to)) ?? []
-        for p in importedPts { byDay[p.day] = p.value }
+        // Layer 2: computed metricSeries (covers sleep_performance, which has no daily column). UNION the
+        // active strap's computed sibling + the canonical computed sibling (canonical first so the active
+        // strap's value, applied last, wins per day).
+        for id in computedReadIds.reversed() {
+            for p in (try? await store.metricSeries(deviceId: id, key: key, from: from, to: to)) ?? [] { byDay[p.day] = p.value }
+        }
+        // Layer 1 (highest): the imported export's metricSeries. UNION active strap + canonical (canonical
+        // first so the active strap's value wins per day).
+        for id in importedReadIds.reversed() {
+            for p in (try? await store.metricSeries(deviceId: id, key: key, from: from, to: to)) ?? [] { byDay[p.day] = p.value }
+        }
 
         return byDay.sorted { $0.key < $1.key }.map { (day: $0.key, value: $0.value) }
     }
@@ -1147,16 +1349,16 @@ final class Repository: ObservableObject {
     /// Android's dailyPick, extended to every Explore "my-whoop" key that maps to a daily column.
     /// Also handles the Apple-compatible sleep aliases (asleep_min / deep_min / rem_min / core_min) the
     /// resolver may request when filling an Apple candidate from its daily columns. Keys with no daily
-    /// column (avg_hr / max_hr …) return nil — they resolve from metricSeries only.
+    /// column (avg_hr / max_hr …) return nil , they resolve from metricSeries only.
     ///
     /// `sleep_performance` (the Rest composite, 0–100) is NOT a stored column: IntelligenceEngine persists
-    /// it as a metricSeries point. But a Bluetooth-only WHOOP 5 user — and, crucially, the SELECTED
-    /// (just-synced) day before the heavy daily pass has projected the series — has the night's totals
+    /// it as a metricSeries point. But a Bluetooth-only WHOOP 5 user , and, crucially, the SELECTED
+    /// (just-synced) day before the heavy daily pass has projected the series , has the night's totals
     /// banked on the DailyMetric row while the metricSeries point is still missing. Without this case the
     /// resolver returned no Rest for that day and Today borrowed the latest historical value (#614). Derive
     /// it on the fly from the same banked totals via the single source of truth
-    /// `AnalyticsEngine.Rest.composite(daily:)` — the SAME composite the series carries (what
-    /// IntelligenceEngine projects) — so the day resolves to its own Rest. Consistency is left to the
+    /// `AnalyticsEngine.Rest.composite(daily:)` , the SAME composite the series carries (what
+    /// IntelligenceEngine projects) , so the day resolves to its own Rest. Consistency is left to the
     /// scorer's neutral default here (the daily row carries no regularity term). Mirrors Android
     /// WhoopRepository.dailyColumn / RestScorer.restFromDaily.
     ///
@@ -1186,12 +1388,19 @@ final class Repository: ObservableObject {
 
     func availableKeys(source: String) async -> [String] {
         guard let store = await ensureStore() else { return [] }
-        return (try? await store.metricKeys(deviceId: source)) ?? []
+        // For the canonical WHOOP source, UNION the keys present under the active strap too, so a re-added
+        // strap's series keys still list alongside the canonical history's. Other sources read verbatim.
+        guard source == canonicalDeviceId, deviceId != canonicalDeviceId else {
+            return (try? await store.metricKeys(deviceId: source)) ?? []
+        }
+        var keys = Set<String>()
+        for id in importedReadIds { keys.formUnion((try? await store.metricKeys(deviceId: id)) ?? []) }
+        return keys.sorted()
     }
 
     /// Native journal answers live under this dedicated source id. The journal table has no
     /// `source` column (PK is (deviceId, day, question)), so writing native answers under the
-    /// imported `deviceId` would let a CSV re-import silently overwrite them — and clears could
+    /// imported `deviceId` would let a CSV re-import silently overwrite them , and clears could
     /// then delete imported rows. A separate device id keeps the two streams independent.
     static let journalDeviceId = "noop-journal"
 
@@ -1201,7 +1410,8 @@ final class Repository: ObservableObject {
         let now = Date()
         let from = Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
         let to = Self.dayString(now.addingTimeInterval(86_400))
-        let imported = (try? await store.journalEntries(deviceId: deviceId, from: from, to: to)) ?? []
+        var imported: [JournalEntry] = []
+        for id in importedReadIds { imported += (try? await store.journalEntries(deviceId: id, from: from, to: to)) ?? [] }
         let native = (try? await store.journalEntries(deviceId: Self.journalDeviceId,
                                                       from: from, to: to)) ?? []
         return Self.mergeJournal(imported: imported, native: native)
@@ -1212,14 +1422,15 @@ final class Repository: ObservableObject {
     func importedJournalEntries(days: Int = 4000) async -> [JournalEntry] {
         guard let store = await ensureStore() else { return [] }
         let now = Date()
-        return (try? await store.journalEntries(
-            deviceId: deviceId,
-            from: Self.dayString(now.addingTimeInterval(-Double(days) * 86_400)),
-            to: Self.dayString(now.addingTimeInterval(86_400)))) ?? []
+        let from = Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
+        let to = Self.dayString(now.addingTimeInterval(86_400))
+        var rows: [JournalEntry] = []
+        for id in importedReadIds { rows += (try? await store.journalEntries(deviceId: id, from: from, to: to)) ?? [] }
+        return rows
     }
 
     /// One day's native answers (question → answeredYes) for the logging card's chip state. A
-    /// targeted read — the merged list carries no deviceId, so it can't distinguish native rows.
+    /// targeted read , the merged list carries no deviceId, so it can't distinguish native rows.
     func nativeJournalAnswers(day: String) async -> [String: Bool] {
         guard let store = await ensureStore() else { return [:] }
         let rows = (try? await store.journalEntries(deviceId: Self.journalDeviceId,
@@ -1228,7 +1439,7 @@ final class Repository: ObservableObject {
                           uniquingKeysWith: { _, last in last })
     }
 
-    /// Union; the NATIVE row wins per (day, question) — the in-app answer is the user's most recent
+    /// Union; the NATIVE row wins per (day, question) , the in-app answer is the user's most recent
     /// explicit action and stays editable, unlike the immutable imported history.
     nonisolated static func mergeJournal(imported: [JournalEntry], native: [JournalEntry]) -> [JournalEntry] {
         var byKey: [String: JournalEntry] = [:]
@@ -1245,7 +1456,7 @@ final class Repository: ObservableObject {
             deviceId: Self.journalDeviceId)
     }
 
-    /// Clear one native answer (never touches imported rows — scoped to the dedicated source id).
+    /// Clear one native answer (never touches imported rows , scoped to the dedicated source id).
     func clearJournalAnswer(day: String, question: String) async {
         guard let store = await ensureStore() else { return }
         _ = try? await store.deleteJournal(deviceId: Self.journalDeviceId, day: day, question: question)
@@ -1253,8 +1464,8 @@ final class Repository: ObservableObject {
 
     /// All workouts (Whoop + Apple Health + on-device detected bouts), newest first.
     ///
-    /// Detected bouts are surfaced with an honest "Detected" badge so the user can see — and
-    /// dismiss or re-label — a duplicate the auto-detector created (#107). Dismissed detected spans
+    /// Detected bouts are surfaced with an honest "Detected" badge so the user can see , and
+    /// dismiss or re-label , a duplicate the auto-detector created (#107). Dismissed detected spans
     /// are filtered HERE so every consumer (Workouts screen, Today, Coach context) agrees: the engine
     /// re-derives the detected rows each run, so a plain delete would resurrect them; the dismissed
     /// span list is the durable "not a workout" record.
@@ -1262,14 +1473,20 @@ final class Repository: ObservableObject {
         guard let store = await ensureStore() else { return [] }
         let now = Int(Date().timeIntervalSince1970)
         let lo = now - days * 86_400, hi = now + 86_400
-        var rows = (try? await store.workouts(deviceId: deviceId, from: lo, to: hi, limit: 5000)) ?? []
+        // UNION the active strap + canonical (and their computed siblings) so workouts banked under the
+        // canonical "my-whoop" before a re-add still show, alongside the re-added strap's live workouts.
+        // De-dup identical same-source rows that appear under both union ids by natural key (the cross-SOURCE
+        // dedup below only collapses strap-vs-Apple twins, not a row present in two strap namespaces).
+        var rows: [WorkoutRow] = []
+        for id in importedReadIds { rows += (try? await store.workouts(deviceId: id, from: lo, to: hi, limit: 5000)) ?? [] }
+        for id in computedReadIds { rows += (try? await store.workouts(deviceId: id, from: lo, to: hi, limit: 5000)) ?? [] }
         rows += (try? await store.workouts(deviceId: "apple-health", from: lo, to: hi, limit: 5000)) ?? []
-        rows += (try? await store.workouts(deviceId: computedDeviceId, from: lo, to: hi, limit: 5000)) ?? []
         // Imported lifting sessions (Hevy / Liftosaur) live under their own "lifting" source.
         rows += (try? await store.workouts(deviceId: "lifting", from: lo, to: hi, limit: 5000)) ?? []
+        rows = Self.dedupWorkoutsByNaturalKey(rows)
         let spans = WorkoutSource.parseDismissedSpans(dismissedDetectedSpans)
         // #687: collapse the SAME activity tracked live under the strap AND imported from Health Connect /
-        // Apple Health into one richer entry — they sit under different sources so without this they show
+        // Apple Health into one richer entry , they sit under different sources so without this they show
         // as two sessions. Dedup runs on the dismissed-filtered set, before the final newest-first sort.
         let filtered = rows.filter { !WorkoutSource.isDismissed($0, spans: spans) }
         // Workouts & GPS test mode: when on, run the dedup twin which returns the BYTE-IDENTICAL kept list
@@ -1291,18 +1508,18 @@ final class Repository: ObservableObject {
     /// DISPLAY-ONLY: reconcile each workout's shown Avg/Max HR with the strap trace that actually drives
     /// its graph / zones / effort (#77, #499). The detail screen always charts (`workoutHrBuckets`) and
     /// zone-bins (`workoutZoneMinutes`) the strap's own ~1 Hz samples over `[startTs, endTs]`; the
-    /// displayed Avg HR comes from the stored `avgHr`. Those can DIVERGE — a hand-edited Avg (128→139)
+    /// displayed Avg HR comes from the stored `avgHr`. Those can DIVERGE , a hand-edited Avg (128→139)
     /// changes the number but not the trace, so the average no longer matches the graph/zones/effort
     /// (#499). Here the stored field defers to the trace whenever the trace is present:
     ///
     ///  - STRAP-NATIVE rows (`manual` / detected `<id>-noop`) are charted/zoned/scored straight from this
     ///    strap trace, so their Avg HR is ALWAYS recomputed as the true mean of those samples (and Max →
-    ///    true peak) — a manual edit can no longer drift them out of agreement with the graph.
+    ///    true peak) , a manual edit can no longer drift them out of agreement with the graph.
     ///  - IMPORTED rows (Apple Health / Health Connect / Whoop CSV) carry their OWN avg/max; we only FILL
     ///    them when nil (and the strap happened to be worn), never overriding a real imported value.
     ///
     /// Requires `minSamples` (~1 min) so stray samples can't fabricate an average, and caps the per-row
-    /// HR reads so a huge history can't jank first paint. NEVER persisted — a read-time projection of the
+    /// HR reads so a huge history can't jank first paint. NEVER persisted , a read-time projection of the
     /// trace (the workout PK upsert would wipe it anyway), recomputed on every load so display == graph
     /// == zones == effort by construction. Kotlin twin: `WhoopRepository.fillWorkoutHrFromStrap`.
     private func reconcileWorkoutHrWithTrace(_ rows: [WorkoutRow], store: WhoopStore,
@@ -1336,13 +1553,13 @@ final class Repository: ObservableObject {
 
     // MARK: - Workout editing (manual add/edit · relabel · dismiss · delete)
     //
-    // Manual workouts live under the strap source (deviceId == `deviceId`, source "manual") — the same
+    // Manual workouts live under the strap source (deviceId == `deviceId`, source "manual") , the same
     // place v1.67's live-tracked sessions already land (AppModel.endWorkout). Detected bouts live under
     // the computed `computedDeviceId` with sport "detected" and are wiped + re-derived each engine run,
     // so the only durable way to keep one hidden after a re-detect is the dismissed-span list below.
 
     /// The persisted dismissed detected spans ("startTs:endTs"). Read straight off UserDefaults so the
-    /// read path and the write path share one source of truth (the engine never sees this — it always
+    /// read path and the write path share one source of truth (the engine never sees this , it always
     /// re-derives; only the read filter and these mutators consult it).
     private var dismissedDetectedSpans: [String] {
         get { UserDefaults.standard.stringArray(forKey: WorkoutSource.dismissedDefaultsKey) ?? [] }
@@ -1351,7 +1568,7 @@ final class Repository: ObservableObject {
 
     /// Persist a retroactive / edited manual workout under the strap source. `replacing` is the row the
     /// edit started from:
-    ///  - editing a DETECTED bout ("Edit details…") replaces it with this manual row — the detected
+    ///  - editing a DETECTED bout ("Edit details…") replaces it with this manual row , the detected
     ///    original is dismissed durably so the re-detector doesn't bring it back (else both would show);
     ///  - editing a MANUAL row whose natural key (startTs/sport) changed deletes the stale strap row
     ///    first (the (deviceId, startTs, sport) PK upsert would otherwise orphan it);
@@ -1369,9 +1586,9 @@ final class Repository: ObservableObject {
     }
 
     /// Re-label a detected bout: copy it to a manual strap row with the chosen sport, then delete the
-    /// detected original. This survives analyzeRecent — the engine wipes + re-derives only sport
+    /// detected original. This survives analyzeRecent , the engine wipes + re-derives only sport
     /// "detected" rows under the computed id AND skips any re-derived bout overlapping a real strap
-    /// workout, which this copy now is — so the same session is never re-created as a duplicate. (#107)
+    /// workout, which this copy now is , so the same session is never re-created as a duplicate. (#107)
     func relabelDetected(_ row: WorkoutRow, sport: String) async {
         guard let store = await ensureStore() else { return }
         let trimmed = sport.trimmingCharacters(in: .whitespaces)
@@ -1408,7 +1625,7 @@ final class Repository: ObservableObject {
                                             from: row.startTs, to: row.startTs)
     }
 
-    // MARK: - Auto-detect workouts (opt-in MVP) — the "Looks like a workout?" Today prompt
+    // MARK: - Auto-detect workouts (opt-in MVP) , the "Looks like a workout?" Today prompt
     //
     // Pure read + suggestion path for the opt-in `AutoWorkoutDetector`. This is SEPARATE from the
     // gravity-gated detected-bouts pipeline above (which writes "detected" rows under the computed id):
@@ -1427,7 +1644,7 @@ final class Repository: ObservableObject {
     /// Token for one auto-detect span (matches the detector's integer seconds).
     private func autoDetectToken(_ w: DetectedWorkout) -> String { "\(w.startSec):\(w.endSec)" }
 
-    /// Hard cap on the dismissed-span list — a backstop so the UserDefaults array can't grow without
+    /// Hard cap on the dismissed-span list , a backstop so the UserDefaults array can't grow without
     /// bound even in pathological use. 200 most-recent (by span END) is far more than detection's ~2-day
     /// window can ever re-surface; the age prune below normally keeps it much shorter. Mirrors Android.
     private static let autoDetectDismissedMax = 200
@@ -1453,7 +1670,7 @@ final class Repository: ObservableObject {
             return end >= cutoff
         }
         guard fresh.count > Self.autoDetectDismissedMax else { return fresh }
-        // Over the cap — keep the most-recent by END (unparseable sort as newest). Sort indices so we
+        // Over the cap , keep the most-recent by END (unparseable sort as newest). Sort indices so we
         // preserve the original list order among the kept entries and never collapse equal tokens.
         let keepIdx = Set(fresh.indices
             .sorted { (autoDetectTokenEnd(fresh[$0]) ?? .max) > (autoDetectTokenEnd(fresh[$1]) ?? .max) }
@@ -1462,7 +1679,7 @@ final class Repository: ObservableObject {
     }
 
     /// Run the opt-in detector over the last `daysBack` days of HR and return the single best
-    /// candidate to suggest — newest first — that is NOT already saved and NOT previously dismissed.
+    /// candidate to suggest , newest first , that is NOT already saved and NOT previously dismissed.
     /// Returns nil when the toggle is off, there's nothing to suggest, or detection finds nothing.
     /// PURE READ: never writes a workout. The window scans from `daysBack` days ago to now.
     func autoDetectCandidate(daysBack: Int = 2) async -> DetectedWorkout? {
@@ -1476,7 +1693,7 @@ final class Repository: ObservableObject {
         // Resting HR: most recent nightly RHR in range, else the detector's own default (60).
         let restingBpm = days.last(where: { $0.restingHr != nil })?.restingHr
 
-        // Exclude every already-saved workout window (any source — strap, manual, imported, detected).
+        // Exclude every already-saved workout window (any source , strap, manual, imported, detected).
         let saved = await workoutRows()
         let savedSpans = saved.map { SavedWorkoutSpan(startSec: $0.startTs, endSec: $0.endTs) }
 
@@ -1501,7 +1718,7 @@ final class Repository: ObservableObject {
             .max(by: { $0.startSec < $1.startSec })
     }
 
-    /// SAVE a suggested window as a manual-style "Workout" (generic sport — we don't claim a sport we
+    /// SAVE a suggested window as a manual-style "Workout" (generic sport , we don't claim a sport we
     /// didn't classify). Built through the same `WorkoutSource.buildManualRow` the manual sheet uses, so
     /// it persists exactly like a hand-entered session under the strap source. After saving, the screen
     /// re-queries (the new saved span now excludes this window from re-suggestion).
@@ -1527,13 +1744,13 @@ final class Repository: ObservableObject {
         autoDetectDismissedSpans = prunedAutoDetectSpans(spans, now: Int(Date().timeIntervalSince1970))
     }
 
-    // MARK: - Workout detail (read-only helpers, additive) — #410
+    // MARK: - Workout detail (read-only helpers, additive) , #410
     //
     // The workout-detail screen needs two reads over a single session's [startTs, endTs] window:
     // a downsampled HR curve (for the ChartCard) and the raw HR samples binned into zone-minutes
     // (for the zones bar). Both reuse the existing HR reads; they're thin convenience wrappers that
     // keep the bucket size / sample cap consistent with the rest of the app and give the view one
-    // call site to await. NEVER mutate — pure reads.
+    // call site to await. NEVER mutate , pure reads.
 
     /// Downsampled HR over a workout window for the detail HR-curve. A short session wants a finer
     /// bucket than the Today 24h chart (300 s would flatten a 30-min run to ~6 points), so the bucket
@@ -1546,10 +1763,10 @@ final class Repository: ObservableObject {
     }
 
     /// Raw HR samples binned into per-zone MINUTES for a workout window, using the age-derived
-    /// (Tanaka) %HRmax zones — the same display zone model `WorkoutsView` already uses for imported
+    /// (Tanaka) %HRmax zones , the same display zone model `WorkoutsView` already uses for imported
     /// zone percentages, but computed here from the strap's own samples so a session WITHOUT imported
     /// `zonesJSON` still gets a real time-in-zone split. Returns nil when the window carries no HR (so
-    /// the view shows nothing rather than five empty bars). `age <= 0` falls back to a 30 y default —
+    /// the view shows nothing rather than five empty bars). `age <= 0` falls back to a 30 y default ,
     /// the zones are approximate either way and clearly labelled as such in the UI.
     func workoutZoneMinutes(from: Int, to: Int, age: Int) async -> [Double]? {
         guard to > from else { return nil }
@@ -1571,7 +1788,7 @@ final class Repository: ObservableObject {
             to: Self.dayString(now.addingTimeInterval(86_400)))) ?? []
     }
 
-    /// Shared formatter — created once. Hot read path (called per series window / refresh);
+    /// Shared formatter , created once. Hot read path (called per series window / refresh);
     /// allocating a DateFormatter per call was a measurable waste. Read-only use is thread-safe.
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -1621,7 +1838,7 @@ private extension DailyMetric {
         )
     }
 
-    /// A copy of self where the SLEEP fields are overridden by `source` — used by the H5 edit-merge so a
+    /// A copy of self where the SLEEP fields are overridden by `source` , used by the H5 edit-merge so a
     /// hand-edited night's computed sleep figures win over the import for that day (#509). Only the sleep
     /// columns move; every other field (recovery/strain/HRV/RHR/activity/in-sleep vitals) is left as-is, so
     /// the import still wins for non-sleep metrics on the edited day.

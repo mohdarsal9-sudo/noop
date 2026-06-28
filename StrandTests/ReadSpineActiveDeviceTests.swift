@@ -4,116 +4,164 @@ import WhoopStore
 import WhoopProtocol
 @testable import Strand
 
-/// #814 READ SPINE: after a remove+re-add the strap gets a FRESH registry id ("whoop-<uuid>"), so the
-/// Collector writes today's raw under THAT id. The read side must follow the registry's active id rather
-/// than the hardcoded "my-whoop", or the dashboard reads an empty stale namespace and Today snaps onto an
-/// old day. These tests pin the contract: after `adoptActiveDeviceId`, the read deviceId == the write
-/// deviceId, and the data written under the new id is the data the read facades return, not the old id's.
+/// #814 READ SPINE + UNION MODEL: after a remove+re-add the strap gets a FRESH registry id ("whoop-<uuid>"),
+/// so the Collector writes today's LIVE raw under THAT id. The read side follows the registry's active id so
+/// that live data surfaces (`adoptActiveDeviceId` moves the active-strap READ id), AND it reads the UNION of
+/// the active strap with the canonical "my-whoop" so history imported/computed earlier under the canonical id
+/// is NOT orphaned by the move. These tests pin the contract: the active-strap id follows the re-add, the
+/// re-added strap's live data surfaces, and the canonical history STILL surfaces alongside it.
 final class ReadSpineActiveDeviceTests: XCTestCase {
 
-    private let oldId = "my-whoop"
+    private let canonicalId = "my-whoop"
     private let newId = "whoop-ABC123"   // the id a re-added strap gets (AddDeviceWizard: "whoop-<uuid>")
 
-    /// The core regression: re-point the read model to the re-added strap's id, then the read deviceId
-    /// equals the WRITE id, and a latest-data lookup finds the data written under the NEW id, never the
-    /// stale "my-whoop" day. Before the fix the read stayed on "my-whoop" and `latestDataDayStart`
-    /// returned the old day (or nil), snapping Today onto stale/empty data.
+    private func dailyMetric(day: String, recovery: Double) -> DailyMetric {
+        DailyMetric(day: day, totalSleepMin: 420, efficiency: 0.9, deepMin: 90, remMin: 100, lightMin: 230,
+                    disturbances: 2, restingHr: 52, avgHrv: 70, recovery: recovery, strain: 8, exerciseCount: 0,
+                    spo2Pct: nil, skinTempDevC: nil, respRateBpm: 14, steps: nil, activeKcalEst: nil)
+    }
+
+    /// The core regression: re-point the active-strap read id to the re-added strap, then the read deviceId
+    /// equals the WRITE (Collector) id, and a latest-data lookup finds the LIVE data written under the NEW id.
+    /// The lookup now unions, so the most-recent day across BOTH ids wins (the fresh today, not the stale day).
     @MainActor
     func testReadFollowsActiveIdAfterReAdd() async throws {
         let store = try await WhoopStore.inMemory()
-        try await store.upsertDevice(id: oldId, mac: nil, name: "WHOOP")
+        try await store.upsertDevice(id: canonicalId, mac: nil, name: "WHOOP")
         try await store.upsertDevice(id: newId, mac: nil, name: "WHOOP")
 
-        // Stale "my-whoop" data sits months in the past; the re-added strap's data is TODAY, under newId.
+        // Stale canonical data sits months in the past; the re-added strap's data is TODAY, under newId.
         let now = Int(Date().timeIntervalSince1970)
         let staleBase = now - 120 * 86_400
         let freshBase = now - 2 * 3_600   // a couple of hours ago (squarely "today")
-        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: staleBase + $0, bpm: 50) }), deviceId: oldId)
+        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: staleBase + $0, bpm: 50) }), deviceId: canonicalId)
         try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: freshBase + $0, bpm: 70) }), deviceId: newId)
 
-        let repo = Repository(deviceId: oldId)
+        let repo = Repository(deviceId: canonicalId)
         repo.setStoreForTesting(store)
 
-        // Seeded with the old id, the latest data is the STALE day.
+        // Seeded with the canonical id, the latest data is the stale canonical day.
         let staleLatest = await repo.latestDataDayStart()
         XCTAssertEqual(staleLatest, Repository.logicalDayStart(Date(timeIntervalSince1970: TimeInterval(staleBase))),
-                       "before re-point the read model sees only the old namespace")
+                       "before re-point the read model sees only the canonical namespace")
 
-        // Re-add → re-point. Read deviceId now equals the write id.
+        // Re-add → re-point. The active-strap read id now equals the write id.
         let moved = repo.adoptActiveDeviceId(newId)
-        XCTAssertTrue(moved, "adopting a different active id must move the read deviceId")
-        XCTAssertEqual(repo.deviceId, newId, "read deviceId must equal the write (Collector) deviceId after re-add")
+        XCTAssertTrue(moved, "adopting a different active id must move the active-strap read id")
+        XCTAssertEqual(repo.deviceId, newId, "active-strap read id must equal the write (Collector) id after re-add")
 
-        // The latest data is now TODAY's, written under the new id, not the stale day.
+        // The latest data is now TODAY's (union picks the most recent across both ids), not the stale day.
         let freshLatest = await repo.latestDataDayStart()
         XCTAssertEqual(freshLatest, Repository.logicalDayStart(Date(timeIntervalSince1970: TimeInterval(freshBase))),
-                       "after re-point the dashboard reads today's data under the new id, not the stale day")
+                       "after re-point the auto-land reads today's live data under the new id, not the stale day")
         XCTAssertNotEqual(freshLatest, staleLatest, "Today must not snap back to the stale namespace's day")
     }
 
-    /// The HR read facades (`hrSamples` / `hrBuckets`) follow the re-pointed id, so the Today HR trend (and
-    /// the auto-land lookup, which goes through these) charts the re-added strap's data, purely the new
-    /// id's samples, never the old id's.
+    /// UNION MODEL update: the HR facades now read the UNION of the active strap + canonical, so a re-added
+    /// strap's LIVE samples AND the canonical history's samples both surface (history is NOT orphaned). Within
+    /// a shared window both appear; the dedup keeps the active strap's sample on any overlapping ts.
     @MainActor
-    func testHrFacadesReadOnlyTheActiveIdAfterReAdd() async throws {
+    func testHrFacadesUnionActiveAndCanonicalAfterReAdd() async throws {
         let store = try await WhoopStore.inMemory()
-        try await store.upsertDevice(id: oldId, mac: nil, name: "WHOOP")
+        try await store.upsertDevice(id: canonicalId, mac: nil, name: "WHOOP")
         try await store.upsertDevice(id: newId, mac: nil, name: "WHOOP")
 
+        // Distinct, NON-overlapping time windows: canonical history earlier, the re-added strap's live later.
         let base = 1_780_000_000
-        // Distinguishable bpm per id so a leak is unambiguous: old @ 50, new @ 88.
-        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: base + $0, bpm: 50) }), deviceId: oldId)
-        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: base + $0, bpm: 88) }), deviceId: newId)
+        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: base + $0, bpm: 50) }), deviceId: canonicalId)
+        try await store.insert(Streams(hr: (0..<300).map { HRSample(ts: base + 10_000 + $0, bpm: 88) }), deviceId: newId)
 
-        let repo = Repository(deviceId: oldId)
+        let repo = Repository(deviceId: canonicalId)
         repo.setStoreForTesting(store)
         repo.adoptActiveDeviceId(newId)
 
-        let samples = await repo.hrSamples(from: base, to: base + 300)
-        XCTAssertEqual(samples.count, 300)
-        XCTAssertTrue(samples.allSatisfy { $0.bpm == 88 }, "read must return only the active (re-added) id's samples")
-        XCTAssertFalse(samples.contains { $0.bpm == 50 }, "the stale id's samples must never leak after re-point")
+        let samples = await repo.hrSamples(from: base, to: base + 11_000)
+        XCTAssertEqual(samples.count, 600, "the union must return BOTH the canonical history and the live samples")
+        XCTAssertTrue(samples.contains { $0.bpm == 88 }, "the re-added strap's live samples must surface")
+        XCTAssertTrue(samples.contains { $0.bpm == 50 }, "the canonical history must NOT be orphaned by the re-add")
     }
 
     /// Adopting an EMPTY or UNCHANGED id is a no-op (single-device install: active id stays "my-whoop"),
-    /// so the default path is byte-identical to the pre-#814 behaviour.
+    /// so the default path is byte-identical to the pre-#814 behaviour (the union collapses to one id).
     @MainActor
     func testAdoptIsNoOpForEmptyOrUnchangedId() async throws {
-        let repo = Repository(deviceId: oldId)
-        XCTAssertFalse(repo.adoptActiveDeviceId(oldId), "same id must not move")
+        let repo = Repository(deviceId: canonicalId)
+        XCTAssertFalse(repo.adoptActiveDeviceId(canonicalId), "same id must not move")
         XCTAssertFalse(repo.adoptActiveDeviceId(""), "empty id must not move")
         XCTAssertFalse(repo.adoptActiveDeviceId("   "), "whitespace-only id must not move")
-        XCTAssertEqual(repo.deviceId, oldId)
+        XCTAssertEqual(repo.deviceId, canonicalId)
     }
 
-    /// The computed ("-noop") sibling id tracks the re-pointed strap id automatically, so the dashboard
-    /// merge reads the engine's computed rows under "<newId>-noop" after a re-add, the read and write
-    /// sides of the computed namespace stay aligned.
+    /// The computed ("-noop") sibling: the union reads BOTH the active strap's computed sibling AND the
+    /// canonical computed sibling, so a day scored under the canonical id before a re-add still surfaces, and
+    /// a day scored under the re-added strap's sibling also surfaces.
     @MainActor
-    func testComputedRowsReadUnderNewIdAfterReAdd() async throws {
+    func testComputedRowsUnionAfterReAdd() async throws {
         let store = try await WhoopStore.inMemory()
+        try await store.upsertDevice(id: canonicalId, mac: nil, name: "WHOOP")
         try await store.upsertDevice(id: newId, mac: nil, name: "WHOOP")
 
-        // The engine would persist computed daily rows under "<active>-noop". Seed one under the NEW id's
-        // computed sibling on TODAY so it lands in the refresh window.
+        // One computed day banked under the CANONICAL sibling (older), one under the re-added strap's sibling.
         let todayKey = Repository.localDayKey(Date())
-        let computed = DailyMetric(day: todayKey, totalSleepMin: 420, efficiency: 0.9, deepMin: 90,
-                                   remMin: 100, lightMin: 230, disturbances: 2, restingHr: 52, avgHrv: 70,
-                                   recovery: 66, strain: 8, exerciseCount: 0, spo2Pct: nil, skinTempDevC: nil,
-                                   respRateBpm: 14, steps: nil, activeKcalEst: nil)
-        _ = try await store.upsertDailyMetrics([computed], deviceId: newId + "-noop")
+        let yKey = Repository.localDayKey(Date().addingTimeInterval(-3 * 86_400))
+        _ = try await store.upsertDailyMetrics([dailyMetric(day: yKey, recovery: 60)], deviceId: canonicalId + "-noop")
+        _ = try await store.upsertDailyMetrics([dailyMetric(day: todayKey, recovery: 66)], deviceId: newId + "-noop")
 
-        let repo = Repository(deviceId: oldId)
+        let repo = Repository(deviceId: canonicalId)
         repo.setStoreForTesting(store)
-
-        // Before re-point the dashboard reads "my-whoop-noop", empty, so today has no row.
-        await repo.refresh()
-        XCTAssertNil(repo.days.first(where: { $0.day == todayKey }),
-                     "stale computed namespace must not surface the new strap's day")
-
         repo.adoptActiveDeviceId(newId)
         await repo.refresh()
+
         XCTAssertNotNil(repo.days.first(where: { $0.day == todayKey }),
-                        "after re-point the dashboard reads computed rows under the new strap's -noop id")
+                        "the re-added strap's computed day must surface")
+        XCTAssertNotNil(repo.days.first(where: { $0.day == yKey }),
+                        "the canonical computed history must NOT be orphaned by the re-add")
+    }
+
+    /// THE union-model regression (#814 follow-up): import history under the CANONICAL "my-whoop", THEN
+    /// re-add a strap so the active id becomes "whoop-uuid" and write LIVE HR under it. Assert (i) the
+    /// imported canonical days STILL surface in refresh(), (ii) the new live HR under the re-added id also
+    /// surfaces, and (iii) Today does NOT snap to a stale day (the auto-land anchor is the fresh live day).
+    @MainActor
+    func testImportedHistoryUnderCanonicalSurvivesReAddWithLiveData() async throws {
+        let store = try await WhoopStore.inMemory()
+        try await store.upsertDevice(id: canonicalId, mac: nil, name: "WHOOP")
+
+        // (1) Import history lands under the CANONICAL id (this is the STABLE import target). Three days,
+        // a few days back, so they are clearly NOT today.
+        let importedDays = (3...5).map { offset -> DailyMetric in
+            let day = Repository.localDayKey(Date().addingTimeInterval(-Double(offset) * 86_400))
+            return dailyMetric(day: day, recovery: 55 + Double(offset))
+        }
+        _ = try await store.upsertDailyMetrics(importedDays, deviceId: canonicalId)
+
+        let repo = Repository(deviceId: canonicalId)
+        repo.setStoreForTesting(store)
+        await repo.refresh()
+        XCTAssertEqual(repo.days.count, importedDays.count, "the canonical import is the baseline before any re-add")
+
+        // (2) Re-add a strap: fresh registry id, active becomes "whoop-uuid". The Collector writes today's
+        // LIVE raw under that id. The import target STAYS canonical (we do NOT move it).
+        try await store.upsertDevice(id: newId, mac: nil, name: "WHOOP")
+        let now = Int(Date().timeIntervalSince1970)
+        let liveBase = now - 90 * 60   // 1.5h ago → today
+        try await store.insert(Streams(hr: (0..<600).map { HRSample(ts: liveBase + $0, bpm: 72) }), deviceId: newId)
+        repo.adoptActiveDeviceId(newId)
+        await repo.refresh()
+
+        // (i) the imported canonical days STILL surface.
+        for d in importedDays {
+            XCTAssertNotNil(repo.days.first(where: { $0.day == d.day }),
+                            "imported canonical day \(d.day) must still surface after the re-add")
+        }
+
+        // (ii) the re-added strap's live HR surfaces under the new id.
+        let liveSamples = await repo.hrSamples(from: liveBase, to: liveBase + 600)
+        XCTAssertTrue(liveSamples.contains { $0.bpm == 72 }, "the re-added strap's live HR must surface")
+
+        // (iii) Today does NOT snap to a stale day: the auto-land anchor is the fresh live day.
+        let landDay = await repo.latestDataDayStart()
+        XCTAssertEqual(landDay, Repository.logicalDayStart(Date(timeIntervalSince1970: TimeInterval(liveBase))),
+                       "Today must anchor on the fresh live day, not a stale imported day")
     }
 }

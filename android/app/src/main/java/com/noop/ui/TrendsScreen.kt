@@ -74,17 +74,19 @@ fun TrendsScreen(vm: AppViewModel) {
     // until it lands so the screen is populated on first frame when any data exists.
     var fullHistory by remember { mutableStateOf<List<DailyMetric>?>(null) }
     LaunchedEffect(Unit) {
-        // Merged: imported WHOOP days win; on-device computed days gap-fill the trends.
-        fullHistory = vm.repo.daysMerged("my-whoop")
+        // Merged: imported WHOOP days win; on-device computed days gap-fill the trends. Reads the registry's
+        // ACTIVE strap id so daysMerged resolves the active-id ∪ canonical "my-whoop" union (SPINE / #814) ,
+        // a re-added strap's data and the canonical import both surface; a single-WHOOP install is unchanged.
+        fullHistory = vm.repo.daysMerged(vm.activeStrapId)
     }
     val days = fullHistory ?: reactiveDays
 
-    // Effort display scale (#268) — routes the Effort small-multiple's numbers + unit. Display-only.
+    // Effort display scale (#268) , routes the Effort small-multiple's numbers + unit. Display-only.
     val effortScale = UnitPrefs.effortScale(LocalContext.current)
 
     var range by remember { mutableStateOf(TrendsRange.Quarter) }
 
-    // #710 — browse previous weeks in the Week-in-review digest. 0 = the week containing today; each step
+    // #710 , browse previous weeks in the Week-in-review digest. 0 = the week containing today; each step
     // back is one Mon–Sun week earlier, clamped so it never runs past the earliest day we hold. The Trends
     // RANGE control above scopes the long charts; this only moves the weekly digest at the top.
     var weekOffset by remember { mutableStateOf(0) }
@@ -93,16 +95,16 @@ fun TrendsScreen(vm: AppViewModel) {
     val minWeekOffset = remember(days) { minWeekOffset(days) }
     LaunchedEffect(minWeekOffset) { weekOffset = weekOffset.coerceIn(minWeekOffset, 0) }
 
-    // Resolve each metric's window ONCE per composition and reuse below — mirrors the macOS resolve(_:)
+    // Resolve each metric's window ONCE per composition and reuse below , mirrors the macOS resolve(_:)
     // so caption / widened / points aren't recomputed per use. HOISTED above the lazy scaffold: these
     // are @Composable `remember` hooks, which can't run inside the LazyListScope content lambda. They're
     // cheap memoized resolves (no-ops over an empty `days`), so the empty branch below simply ignores
-    // them — same as Intelligence's hoisted range/filter. Mirrors the eager body's per-composition resolve.
+    // them , same as Intelligence's hoisted range/filter. Mirrors the eager body's per-composition resolve.
     val recovery = remember(days, range) { resolveMetric(days, range) { it.recovery } }
     val hrv = remember(days, range) { resolveMetric(days, range) { it.avgHrv } }
     val rhr = remember(days, range) { resolveMetric(days, range) { it.restingHr?.toDouble() } }
     val strain = remember(days, range) { resolveMetric(days, range) { it.strain } }
-    // Rest = the sleep_performance COMPOSITE (0–100) — the SAME metric the Today Rest score/tile and the
+    // Rest = the sleep_performance COMPOSITE (0–100) , the SAME metric the Today Rest score/tile and the
     // Sleep Rest-detail plot (#614 follow-up), NOT raw efficiency, which is a different number under the
     // same "Rest" label and made the Trends Rest graph disagree with the Today Rest score (#732).
     // sleep_performance is a metricSeries (imported-wins resolved), not a DailyMetric column, so fetch the
@@ -127,7 +129,7 @@ fun TrendsScreen(vm: AppViewModel) {
         }
 
         // The main card list ripples in once on appear (Reduce-Motion safe), mirroring the iOS
-        // staggeredAppear sequence — each top-level section is one staggered child.
+        // staggeredAppear sequence , each top-level section is one staggered child.
 
         // --- Week-in-review digest (#208) with prev/next week browsing (#710). Past weeks render in the
         // same format; the chevrons stay visible on an empty PAST week so the user can step on. ---
@@ -142,7 +144,7 @@ fun TrendsScreen(vm: AppViewModel) {
             }
         }
 
-        // --- Week in review — the Charge / Effort / Rest trio in NOOP's pip language (PipBar +
+        // --- Week in review , the Charge / Effort / Rest trio in NOOP's pip language (PipBar +
         // CountUpText), mirroring the iOS TrendsView.weekInReview card. White count-up numbers over
         // segmented count-up bars; self-hides when none of the three carry a window mean. ---
         item {
@@ -182,7 +184,7 @@ fun TrendsScreen(vm: AppViewModel) {
             }
         }
 
-        // --- Hero — charge over time. Charge (green) world: domain card wash, a crisp flat line with a
+        // --- Hero , charge over time. Charge (green) world: domain card wash, a crisp flat line with a
         // bright "now" end-cap, and a TrendChip for the window's move. ---
         item {
             ChartCard(
@@ -201,7 +203,7 @@ fun TrendsScreen(vm: AppViewModel) {
                 change = periodChange(recovery.values),
                 higherIsBetter = true,
                 changeFmt = { "${it.roundToInt()}" },
-                // Lift the ceiling ~6% so a near-100 peak and the now-cap halo clear the top gridline —
+                // Lift the ceiling ~6% so a near-100 peak and the now-cap halo clear the top gridline ,
                 // mirrors the iOS hero's `valueRange: 0...106`.
                 chartHeadroom = 0.06f,
                 footer = listOf(
@@ -213,9 +215,9 @@ fun TrendsScreen(vm: AppViewModel) {
             )
         }
 
-        // --- Small multiples — HRV / Resting HR / Effort. HRV/RHR are Charge sub-signals → the green
+        // --- Small multiples , HRV / Resting HR / Effort. HRV/RHR are Charge sub-signals → the green
         // card world (each line keeps its metric hue); Effort is the WHOOP blue strain world. ---
-        // No trailing window label — the range bar's overline already states it.
+        // No trailing window label , the range bar's overline already states it.
         item {
             Column(
                 modifier = Modifier.staggeredAppear(index = 4),
@@ -242,7 +244,7 @@ fun TrendsScreen(vm: AppViewModel) {
                     // Plotted values stay on the stored 0–100 scale (line shape unchanged); only the displayed
                     // numbers + unit follow the Effort-scale toggle, converted inside `fmt`. (#268)
                     title = "Effort", unit = "/ ${UnitFormatter.effortScaleMax(effortScale)}",
-                    // WHOOP: Effort/Strain is always BLUE — a deep→bright blue line, not the amber ramp.
+                    // WHOOP: Effort/Strain is always BLUE , a deep→bright blue line, not the amber ramp.
                     color = Palette.effortColor,
                     tint = Palette.effortColor,
                     tipColor = Palette.effortBright,
@@ -260,7 +262,7 @@ fun TrendsScreen(vm: AppViewModel) {
             }
         }
 
-        // --- Export trends report (#436) — the shareable offline PDF exporter. Mirrors the iOS
+        // --- Export trends report (#436) , the shareable offline PDF exporter. Mirrors the iOS
         // TrendsView.exportReportRow footer; the same composable Settings hosts, so both surfaces
         // offer it. Routed through NoopButton like every other CTA (no gold). ---
         item {
@@ -370,7 +372,7 @@ private fun WeekNavBar(weekOffset: Int, minWeekOffset: Int, onStep: (Int) -> Uni
     }
 }
 
-// MARK: - Week in review — the Charge / Effort / Rest trio in pip language
+// MARK: - Week in review , the Charge / Effort / Rest trio in pip language
 //
 // The three daily scores as NOOP pip rows over the resolved window: Charge (recovery, 0–100),
 // Effort (strain, shown on the WHOOP 0–21 / 0–100 scale per the unit toggle) and Rest (sleep
@@ -462,10 +464,10 @@ private enum class TrendsRange(val days: Int?, val label: String, val longName: 
     Year(365, "1Y", "year"),
     All(null, "ALL", "all history");
 
-    /** "Trailing 90 days" / "All history" — the card/range subtitle. */
+    /** "Trailing 90 days" / "All history" , the card/range subtitle. */
     val subtitle: String get() = days?.let { "Trailing $it days" } ?: "All history"
 
-    /** This range plus every LARGER range, ascending — the auto-expand search order. */
+    /** This range plus every LARGER range, ascending , the auto-expand search order. */
     val widening: List<TrendsRange>
         get() = entries.dropWhile { it != this }
 }
@@ -528,8 +530,8 @@ private fun windowPoints(
     if (days.isEmpty()) return emptyList()
     val sliced = when (val n = range.days) {
         null -> days
-        // Trailing N CALENDAR days ending today — anchored to the phone's date, NOT the last N rows
-        // (which on a stale import made months-old data fill the W/M/3M windows, looking current — #23).
+        // Trailing N CALENDAR days ending today , anchored to the phone's date, NOT the last N rows
+        // (which on a stale import made months-old data fill the W/M/3M windows, looking current , #23).
         // ISO yyyy-MM-dd sorts chronologically. Empty short windows auto-widen via resolveMetric, so old
         // imports surface under a wider range / All history rather than masquerading as recent.
         else -> {
@@ -544,13 +546,13 @@ private fun windowPoints(
 private fun caption(count: Int, eff: TrendsRange, selected: TrendsRange): String {
     val unit = if (count == 1) "reading" else "readings"
     return if (eff != selected) {
-        "$count $unit · sparse — widened to ${eff.longName}"
+        "$count $unit · sparse , widened to ${eff.longName}"
     } else {
         "$count $unit · ${selected.longName}"
     }
 }
 
-// MARK: - ChartCard — the uniform fixed-height trend card
+// MARK: - ChartCard , the uniform fixed-height trend card
 //
 // A NoopCard holding a header (overline-styled title + caption + trailing read-out), a
 // fixed-height LineChart, and a divided footer of labelled stats. Mirrors the macOS
@@ -573,7 +575,7 @@ private fun ChartCard(
     change: Double? = null,
     higherIsBetter: Boolean? = null,
     changeFmt: (Double) -> String = { "${it.roundToInt()}" },
-    // Fraction of the plot height left empty above the peak — the Android stand-in for the iOS
+    // Fraction of the plot height left empty above the peak , the Android stand-in for the iOS
     // hero's `valueRange: 0...106` padded ceiling, so the peak + now-cap halo clear the top
     // gridline. 0 keeps the curve filling the full height (the small multiples). (#458/parity)
     chartHeadroom: Float = 0f,
@@ -589,7 +591,7 @@ private fun ChartCard(
                     }
                 }
                 if (trailing != null) {
-                    // Neutral 15pt readout (matches iOS TrendsView) — not the 22sp tinted figure.
+                    // Neutral 15pt readout (matches iOS TrendsView) , not the 22sp tinted figure.
                     Text(trailing, style = NoopType.bodyNumber, color = Palette.textPrimary)
                 }
             }
@@ -619,7 +621,7 @@ private fun ChartCard(
     }
 }
 
-/** A TrendChip for a window's period change — green/rose by whether the move is good for THIS metric. */
+/** A TrendChip for a window's period change , green/rose by whether the move is good for THIS metric. */
 @Composable
 private fun ChangeChip(change: Double?, higherIsBetter: Boolean?, fmt: (Double) -> String) {
     if (change == null || kotlin.math.abs(change) <= 0.0001) return
@@ -644,7 +646,7 @@ private fun ChartWithAxes(
     color: Color,
     formatY: (Double) -> String,
     tipColor: Color = color,
-    // See ChartCard.chartHeadroom — fraction of the plot left empty above the peak.
+    // See ChartCard.chartHeadroom , fraction of the plot left empty above the peak.
     headroom: Float = 0f,
 ) {
     val maxV = values.max()
@@ -663,12 +665,12 @@ private fun ChartWithAxes(
                 Text(formatY(avgV), style = NoopType.footnote, color = Palette.textTertiary, maxLines = 1)
                 Text(formatY(minV), style = NoopType.footnote, color = Palette.textTertiary, maxLines = 1)
             }
-            // The shared LineChart with a glowing "now" end-cap drawn on top — the Bevel idiom from
+            // The shared LineChart with a glowing "now" end-cap drawn on top , the Bevel idiom from
             // Today's OverviewHRChart. The cap reproduces LineChart's own point geometry (same
             // strokePx/topPad/bottomPad) so the dot lands exactly on the line's final sample.
             //
             // headroom leaves the top fraction of the card empty and pins the plotting Box to the
-            // bottom — the Android stand-in for the iOS hero's `valueRange: 0...106` (LineChart has
+            // bottom , the Android stand-in for the iOS hero's `valueRange: 0...106` (LineChart has
             // no value-domain hook, so we shrink its drawing box instead). Both LineChart and the
             // GlowEndCap fill this same Box, so the cap stays on the line.
             val plotHeight = Metrics.chartHeight * (1f - headroom.coerceIn(0f, 0.5f))
@@ -751,7 +753,7 @@ private fun MetricTrendCard(
 }
 
 /**
- * The window's trend as a signed mean-of-recent-half minus mean-of-earlier-half — drives the card's
+ * The window's trend as a signed mean-of-recent-half minus mean-of-earlier-half , drives the card's
  * TrendChip so a glance reads the direction, like Today's deltas. null for a window too short to split.
  */
 private fun periodChange(values: List<Double>): Double? {
@@ -791,8 +793,8 @@ private fun ChartFooter(items: List<Pair<String, String>>) {
 private fun RecoveryHistoryCard(days: List<DailyMetric>, range: TrendsRange) {
     // PERF (#scroll-jank): memoise the window slice + recovery extraction on (days, range) so the
     // 800+-day takeLast + mapNotNull don't re-run on every recomposition (e.g. the staggered-appear
-    // animation frames that drive this whole strip). Same span rule, same values, same order — purely
-    // skips redundant re-slicing. NOTE: the bars are NOT caller-downsampled — BarChart already mean-
+    // animation frames that drive this whole strip). Same span rule, same values, same order , purely
+    // skips redundant re-slicing. NOTE: the bars are NOT caller-downsampled , BarChart already mean-
     // bucket-downsamples internally to ~one bar per horizontal pixel (pixel-identical), so a second,
     // coarser caller-side bucket (e.g. ≤180) would visibly widen the bars and is deliberately avoided.
     val recovery = remember(days, range) {
@@ -801,9 +803,9 @@ private fun RecoveryHistoryCard(days: List<DailyMetric>, range: TrendsRange) {
         days.takeLast(span).mapNotNull { it.recovery }
     }
     val title = if (range == TrendsRange.All && days.size > 365) {
-        "Charge — all history"
+        "Charge , all history"
     } else {
-        "Charge — past year"
+        "Charge , past year"
     }
 
     NoopCard(tint = Palette.chargeColor) {
@@ -832,7 +834,7 @@ private fun RecoveryHistoryCard(days: List<DailyMetric>, range: TrendsRange) {
 // MARK: - Shared bits
 
 /**
- * A glowing dot pinned to a LineChart's latest sample — the Bevel "now" end-cap (a soft halo + bright
+ * A glowing dot pinned to a LineChart's latest sample , the Bevel "now" end-cap (a soft halo + bright
  * core + white centre), matching Today's OverviewHRChart. Drawn as a sibling overlay so the shared
  * LineChart stays untouched; it reproduces that chart's point geometry exactly (strokePx 2.5, top/
  * bottom pad strokePx+4, finite-value min/max) so the cap sits on the curve's final point.
@@ -890,7 +892,7 @@ private fun EmptyTrends() {
 
 // MARK: - Small numeric helpers
 
-private const val EM_DASH = "—"
+private const val EM_DASH = ","
 
 private fun List<Double>.averageOrNull(): Double? =
     if (isEmpty()) null else sum() / size
