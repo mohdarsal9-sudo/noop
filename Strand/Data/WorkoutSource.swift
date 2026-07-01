@@ -47,7 +47,7 @@ enum WorkoutSource: Equatable {
     /// unbreakable word and truncates badly — split it into words on the lower→Upper boundary so it
     /// renders "Traditional Strength Training". Already-spaced labels (manual/edited) pass through. (#175)
     static func displaySport(_ sport: String) -> String {
-        if sport == "detected" { return "Activity" }
+        if sport == "detected" { return String(localized: "Activity") }
         if sport.isEmpty || sport.contains(" ") { return sport }
         var out = ""
         var prev: Character?

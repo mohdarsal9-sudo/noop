@@ -117,8 +117,8 @@ public struct WatchScoreSnapshot: Codable, Equatable, Sendable {
         // Preferred path: we know which day the scores describe. Compare day keys against "now" so the
         // label tracks the actual calendar day, not the build clock.
         if let scoreDay, let scored = Self.dayKeyFormatter.date(from: scoreDay) {
-            if cal.isDateInToday(scored) { return "Today" }
-            if cal.isDateInYesterday(scored) { return "Yesterday" }
+            if cal.isDateInToday(scored) { return String(localized: "Today") }
+            if cal.isDateInYesterday(scored) { return String(localized: "Yesterday") }
             let days = cal.dateComponents([.day], from: cal.startOfDay(for: scored),
                                           to: cal.startOfDay(for: now)).day ?? 0
             // Within the last week a weekday name ("Mon") is the most readable; past that, a plain count.
@@ -127,15 +127,15 @@ public struct WatchScoreSnapshot: Codable, Equatable, Sendable {
                 f.dateFormat = "EEE"
                 return f.string(from: scored)
             }
-            return "\(max(days, 0)) days ago"
+            return String(localized: "\(max(days, 0)) days ago")
         }
 
         // Fallback: no scoreDay (an older snapshot). Describe the build age of the snapshot itself.
         let age = now.timeIntervalSince(asOf)
-        if age < 60 { return "just now" }
-        if age < 3600 { return "\(Int(age / 60))m ago" }
-        if age < 86_400 { return "\(Int(age / 3600))h ago" }
-        return "\(Int(age / 86_400))d ago"
+        if age < 60 { return String(localized: "just now") }
+        if age < 3600 { return String(localized: "\(Int(age / 60))m ago") }
+        if age < 86_400 { return String(localized: "\(Int(age / 3600))h ago") }
+        return String(localized: "\(Int(age / 86_400))d ago")
     }
 
     /// Shared "YYYY-MM-DD" parser/formatter for `scoreDay`. Fixed locale + POSIX so it round-trips the

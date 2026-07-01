@@ -263,8 +263,8 @@ enum FolderBackup {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose"
-        panel.message = "Choose a folder for NOOP backups (for example a Google Drive or iCloud folder)."
+        panel.prompt = String(localized: "Choose")
+        panel.message = String(localized: "Choose a folder for NOOP backups (for example a Google Drive or iCloud folder).")
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
         saveFolder(url)
         return url

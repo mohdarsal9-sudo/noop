@@ -699,34 +699,6 @@
         }
       }
     },
-    "%@ — mood %lld of 5": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ — mood %2$lld of 5"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, umore %2$lld di 5"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ — 心情 %2$lld / 5"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ — 心情 %2$lld / 5"
-          }
-        }
-      }
-    },
     "%@ ↔ %@": {
       "localizations": {
         "de": {
@@ -831,7 +803,7 @@
         }
       }
     },
-    "%@+ downloads so far — %lld donors.": {
+    "%@+ downloads so far, %lld donors.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1071,6 +1043,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@，最新 %2$@，%3$lld 筆讀數"
+          }
+        }
+      }
+    },
+    "%@, mood %lld of 5": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — mood %2$lld of 5"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, umore %2$lld di 5"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — 心情 %2$lld / 5"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — 心情 %2$lld / 5"
           }
         }
       }
@@ -2321,7 +2321,7 @@
         }
       }
     },
-    "%lld reading%@ line up so far — not enough to read a trend yet (NOOP waits for %lld).": {
+    "%lld reading%@ line up so far, not enough to read a trend yet (NOOP waits for %lld).": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2399,7 +2399,7 @@
         }
       }
     },
-    "%lld readings used · %@ %@ association. This is your own data sitting side by side — it's not a medical finding, and it shows association, not cause.": {
+    "%lld readings used · %@ %@ association. This is your own data sitting side by side. It's not a medical finding, and it shows association, not cause.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2455,7 +2455,7 @@
         }
       }
     },
-    "%lld type-0x2F historical-offload frame%@ seen outside our sync — these are history (e.g. another app pulling the strap's backlog), not a live R22 stream (#494).": {
+    "%lld type-0x2F historical-offload frame%@ seen outside our sync. These are history (e.g. another app pulling the strap's backlog), not a live R22 stream (#494).": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2963,7 +2963,7 @@
         }
       }
     },
-    "A WHOOP membership runs $300–480 a year, for life. NOOP does this for free — one person, no servers, no subscription.": {
+    "A WHOOP membership runs $300–480 a year, for life. NOOP does this for free: one person, no servers, no subscription.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -2985,7 +2985,7 @@
         }
       }
     },
-    "A bulk markers CSV import (date, marker, value, unit) lands with the file importers in Data Sources — same as nutrition and lifting. For now, add readings one at a time above. Everything you import stays on %@.": {
+    "A bulk markers CSV import (date, marker, value, unit) lands with the file importers in Data Sources, same as nutrition and lifting. For now, add readings one at a time above. Everything you import stays on %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3057,7 +3057,7 @@
         }
       }
     },
-    "A clean, shareable one-page PDF of your recovery, sleep, HRV, resting heart rate and strain over a date range. Saved on your %@ — nothing leaves the device.": {
+    "A clean, shareable one-page PDF of your recovery, sleep, HRV, resting heart rate and strain over a date range. Saved on your %@. Nothing leaves the device.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3145,7 +3145,7 @@
         }
       }
     },
-    "A few more days of wear — plus the basics below — and we can show your Fitness Age.": {
+    "A few more days of wear, plus the basics below, and we can show your Fitness Age.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3189,7 +3189,7 @@
         }
       }
     },
-    "A period is likely between %@ and %@ — a window, not a fixed date.": {
+    "A period is likely between %@ and %@ (a window, not a fixed date).": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3239,7 +3239,7 @@
         }
       }
     },
-    "A private window into your recovery, sleep and strain , read straight from your strap, kept only on this Mac.": {
+    "A private window into your recovery, sleep and strain, read straight from your strap, kept only on this Mac.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -3291,7 +3291,7 @@
         }
       }
     },
-    "A private window into your recovery, sleep and strain — read straight from your strap, kept only on %@.": {
+    "A private window into your recovery, sleep and strain. Read straight from your strap, kept only on %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3313,7 +3313,7 @@
         }
       }
     },
-    "A read-only export of the decoded sensor streams NOOP already stores. Works on any strap — nothing is written to your device, and nothing is uploaded.": {
+    "A read-only export of the decoded sensor streams NOOP already stores. Works on any strap. Nothing is written to your device, and nothing is uploaded.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3379,7 +3379,7 @@
         }
       }
     },
-    "A shareable one-page PDF of recovery, sleep, HRV, resting HR and strain over a range — saved on your %@.": {
+    "A shareable one-page PDF of recovery, sleep, HRV, resting HR and strain over a range, saved on your %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3423,7 +3423,7 @@
         }
       }
     },
-    "A standalone companion for your WHOOP. Everything stays on this device , your history, your live stream, your numbers. Nothing is uploaded. NOOP is an independent, experimental project, not the WHOOP app.": {
+    "A standalone companion for your WHOOP. Everything stays on this device, your history, your live stream, your numbers. Nothing is uploaded. NOOP is an independent, experimental project, not the WHOOP app.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -3475,7 +3475,7 @@
         }
       }
     },
-    "A standalone companion for your WHOOP. Everything stays on this device — your history, your live stream, your numbers. Nothing is uploaded. NOOP is an independent, experimental project, not the WHOOP app.": {
+    "A standalone companion for your WHOOP. Everything stays on this device: your history, your live stream, your numbers. Nothing is uploaded. NOOP is an independent, experimental project, not the WHOOP app.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3541,7 +3541,7 @@
         }
       }
     },
-    "A transparent cardiorespiratory recipe that recovers deep and REM better than the default staging. Opt-in and experimental — it only changes how already-detected nights are split into stages (detection and scores are unchanged), and the default staging stays in place if you leave this off. Takes effect on the next nights staged.": {
+    "A transparent cardiorespiratory recipe that recovers deep and REM better than the default staging. Opt-in and experimental: it only changes how already-detected nights are split into stages (detection and scores are unchanged), and the default staging stays in place if you leave this off. Takes effect on the next nights staged.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -3585,7 +3585,7 @@
         }
       }
     },
-    "A wellness estimate from your habits — not a clinical biological age.": {
+    "A wellness estimate from your habits, not a clinical biological age.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -4699,7 +4699,7 @@
         }
       }
     },
-    "Adds a simple fluid log with a daily goal that adjusts to your effort. Tap to add a sip, cup or bottle and watch a progress ring fill. On %@ only — nothing is synced.": {
+    "Adds a simple fluid log with a daily goal that adjusts to your effort. Tap to add a sip, cup or bottle and watch a progress ring fill. On %@ only. Nothing is synced.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -4919,7 +4919,7 @@
         }
       }
     },
-    "After a sync, NOOP looks over your recent heart rate for a sustained, raised stretch that looks like exercise and offers to save it. It only ever suggests — nothing is saved until you tap Save, and you can dismiss any suggestion. Deliberately conservative, so the odd workout may be missed. On %@ only.": {
+    "After a sync, NOOP looks over your recent heart rate for a sustained, raised stretch that looks like exercise and offers to save it. It only ever suggests. Nothing is saved until you tap Save, and you can dismiss any suggestion. Deliberately conservative, so the odd workout may be missed. On %@ only.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -5391,7 +5391,7 @@
         }
       }
     },
-    "Answers are about the night and day leading into this morning — the same attribution a WHOOP export uses, so logged and imported days line up.": {
+    "Answers are about the night and day leading into this morning, the same attribution a WHOOP export uses, so logged and imported days line up.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -5413,7 +5413,7 @@
         }
       }
     },
-    "Any OpenAI-compatible server — Ollama, LM Studio, llama.cpp, or your own gateway. Stays on your network; nothing leaves %@.": {
+    "Any OpenAI-compatible server: Ollama, LM Studio, llama.cpp, or your own gateway. Stays on your network; nothing leaves %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -5435,7 +5435,7 @@
         }
       }
     },
-    "Any amount helps. Thank you , genuinely.": {
+    "Any amount helps. Thank you, genuinely.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -5464,35 +5464,13 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Qualsiasi importo è d'aiuto. Grazie, davvero."
+            "value": "Qualsiasi importo aiuta. Grazie, davvero."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Любая сумма поможет. Спасибо , искренне."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "任何金额都有帮助。谢谢你——真心的。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "任何金額都有幫助。謝謝你——真心的。"
-          }
-        }
-      }
-    },
-    "Any amount helps. Thank you — genuinely.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qualsiasi importo aiuta. Grazie, davvero."
           }
         },
         "zh-Hans": {
@@ -5863,7 +5841,7 @@
         }
       }
     },
-    "Ask about your charge, effort, rest and workouts — grounded in your own numbers.": {
+    "Ask about your charge, effort, rest and workouts, grounded in your own numbers.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -5885,7 +5863,7 @@
         }
       }
     },
-    "Ask about your recovery, strain, sleep and workouts , grounded in your own numbers.": {
+    "Ask about your recovery, strain, sleep and workouts, grounded in your own numbers.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -7327,7 +7305,7 @@
         }
       }
     },
-    "Baselines are learned on-device over your first 14 days — until then, typical ranges apply.": {
+    "Baselines are learned on-device over your first 14 days. Until then, typical ranges apply.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -8103,7 +8081,7 @@
         }
       }
     },
-    "Bonded — streaming.": {
+    "Bonded, streaming.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -8493,6 +8471,28 @@
         }
       }
     },
+    "Building (1 window)": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creazione in corso, 1 finestra"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "构建中 — 1 个窗口"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建立中 — 1 個窗口"
+          }
+        }
+      }
+    },
     "Building from your strap": {
       "localizations": {
         "de": {
@@ -8591,28 +8591,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在建立你的最佳來源記錄…"
-          }
-        }
-      }
-    },
-    "Building — 1 window": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Creazione in corso, 1 finestra"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "构建中 — 1 个窗口"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建立中 — 1 個窗口"
           }
         }
       }
@@ -8743,7 +8721,7 @@
         }
       }
     },
-    "Built from published methods (Nes/HUNT) on %@. It's a fitness comparison against an average peer your age — not a biological or medical age.": {
+    "Built from published methods (Nes/HUNT) on %@. It's a fitness comparison against an average peer your age, not a biological or medical age.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -8943,7 +8921,7 @@
         }
       }
     },
-    "Buzz your strap or mark a moment from Siri, Spotlight, the Shortcuts app, or a Back-Tap / automation — no setup needed.": {
+    "Buzz your strap or mark a moment from Siri, Spotlight, the Shortcuts app, or a Back-Tap / automation. No setup needed.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -9467,7 +9445,35 @@
         }
       }
     },
-    "Calibrating , %lld of %lld": {
+    "Calibrating (%lld of %lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Calibrating — %1$lld of %2$lld"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calibrazione, %1$lld di %2$lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "校准中 — %1$lld / %2$lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "校準中 — %1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "Calibrating, %lld of %lld": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -9515,34 +9521,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "校準中——%lld / %lld"
-          }
-        }
-      }
-    },
-    "Calibrating — %lld of %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Calibrating — %1$lld of %2$lld"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calibrazione, %1$lld di %2$lld"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "校准中 — %1$lld / %2$lld"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "校準中 — %1$lld / %2$lld"
           }
         }
       }
@@ -9717,7 +9695,7 @@
         }
       }
     },
-    "Can't connect — your strap's pairing was reset": {
+    "Can't connect: your strap's pairing was reset": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -9975,7 +9953,7 @@
         }
       }
     },
-    "Changes the Bluetooth name your WHOOP 4.0 advertises — what you see when pairing. The strap reboots to apply, so the new name appears the next time it connects. WHOOP 4.0 only.": {
+    "Changes the Bluetooth name your WHOOP 4.0 advertises (what you see when pairing). The strap reboots to apply, so the new name appears the next time it connects. WHOOP 4.0 only.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -10099,7 +10077,7 @@
         }
       }
     },
-    "Charge weighs your HRV against your personal baseline (~55%%), resting heart rate (~20%%), rest quality (~15%%), respiration (~5%%) and skin-temperature deviation (~5%%). Effort is a 0–%@ cardiovascular load from time in heart-rate zones. Rest is staged from movement and heart rate. Everything is computed here from the strap's raw data — it works for any day NOOP collected raw streams.": {
+    "Charge weighs your HRV against your personal baseline (~55%%), resting heart rate (~20%%), rest quality (~15%%), respiration (~5%%) and skin-temperature deviation (~5%%). Effort is a 0–%@ cardiovascular load from time in heart-rate zones. Rest is staged from movement and heart rate. Everything is computed here from the strap's raw data. It works for any day NOOP collected raw streams.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -10143,7 +10121,7 @@
         }
       }
     },
-    "Charge, Effort and Rest — and how they differ from WHOOP.": {
+    "Charge, Effort and Rest (and how they differ from WHOOP).": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -10231,7 +10209,7 @@
         }
       }
     },
-    "Checks the project's home (GitHub) for the latest version when you tap — nothing else is sent.": {
+    "Checks the project's home (GitHub) for the latest version when you tap. Nothing else is sent.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -10511,7 +10489,7 @@
         }
       }
     },
-    "Choose how distances, weights, heights, temperatures and Effort are shown. Your data is always stored the same way — this only changes the display.": {
+    "Choose how distances, weights, heights, temperatures and Effort are shown. Your data is always stored the same way. This only changes the display.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -11265,7 +11243,7 @@
         }
       }
     },
-    "Coach talks only to the server URL you set — point it at a local model (Ollama, LM Studio, llama.cpp) to keep everything on your own machine. Nothing is sent until you ask.": {
+    "Coach talks only to the server URL you set. Point it at a local model (Ollama, LM Studio, llama.cpp) to keep everything on your own machine. Nothing is sent until you ask.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -12019,28 +11997,6 @@
         }
       }
     },
-    "Connect your strap first — the reading needs the live R-R stream.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Collega prima la tua fascia, la lettura necessita del flusso R-R in diretta."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请先连接你的手环 — 读数需要实时 R-R 数据流。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "請先連接你的手環 — 讀數需要即時 R-R 資料流。"
-          }
-        }
-      }
-    },
     "Connect your strap first.": {
       "localizations": {
         "it": {
@@ -12063,7 +12019,29 @@
         }
       }
     },
-    "Connect your strap for haptic guidance , you'll feel one pulse on the inhale, two on the exhale, so you can breathe with your eyes closed.": {
+    "Connect your strap first. The reading needs the live R-R stream.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collega prima la tua fascia, la lettura necessita del flusso R-R in diretta."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先连接你的手环 — 读数需要实时 R-R 数据流。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請先連接你的手環 — 讀數需要即時 R-R 資料流。"
+          }
+        }
+      }
+    },
+    "Connect your strap for haptic guidance, you'll feel one pulse on the inhale, two on the exhale, so you can breathe with your eyes closed.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -12115,7 +12093,7 @@
         }
       }
     },
-    "Connect your strap for haptic guidance — you'll feel one pulse on the inhale, two on the exhale, so you can breathe with your eyes closed.": {
+    "Connect your strap for haptic guidance. You'll feel one pulse on the inhale, two on the exhale, so you can breathe with your eyes closed.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -12137,7 +12115,7 @@
         }
       }
     },
-    "Connect your strap for the felt cue — the sweep paces you with one buzz on the inhale, two on the exhale.": {
+    "Connect your strap for the felt cue. The sweep paces you with one buzz on the inhale, two on the exhale.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -12263,7 +12241,7 @@
         }
       }
     },
-    "Connect your strap — Calm me is a felt rhythm on the wrist, so it needs a bonded connection.": {
+    "Connect your strap. Calm me is a felt rhythm on the wrist, so it needs a bonded connection.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -13009,7 +12987,7 @@
         }
       }
     },
-    "Counter ticks per step — leave at 1.0 unless your steps run high. On a WHOOP 5/MG they can run very high (10× or more), so this goes up to 30. Walk a known 1,000 steps and divide NOOP's count by the real count to get your value.": {
+    "Counter ticks per step. Leave at 1.0 unless your steps run high. On a WHOOP 5/MG they can run very high (10× or more), so this goes up to 30. Walk a known 1,000 steps and divide NOOP's count by the real count to get your value.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -13783,7 +13761,7 @@
         }
       }
     },
-    "Day 1 — bright light %@–%@, lights-out around %@.": {
+    "Day 1: bright light %@–%@, lights-out around %@.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -14473,7 +14451,7 @@
         }
       }
     },
-    "Device, iOS build, Data Protection and sideload status — for bug reports.": {
+    "Device, iOS build, Data Protection and sideload status, for bug reports.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -14907,7 +14885,7 @@
         }
       }
     },
-    "Donate or get in touch — totally optional.": {
+    "Donate or get in touch. Totally optional.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -15179,7 +15157,7 @@
         }
       }
     },
-    "Dumps the last 24 hours of decoded per-sample sensor streams (heart rate, R-R, motion, steps, SpO₂, skin temperature, respiration, events) to a single CSV — all on %@, nothing uploaded. Share it to help prototype and test sleep, activity and strength algorithms.": {
+    "Dumps the last 24 hours of decoded per-sample sensor streams (heart rate, R-R, motion, steps, SpO₂, skin temperature, respiration, events) to a single CSV. All on %@, nothing uploaded. Share it to help prototype and test sleep, activity and strength algorithms.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -15267,7 +15245,7 @@
         }
       }
     },
-    "During quiet, still, resting windows, NOOP looks at the timing between your heartbeats (R-R intervals) and draws their Poincaré scatter. From the cloud it computes its short and long axes (SD1, SD2) and a few plain regularity numbers. Movement and noisy windows are skipped, not shown. These are transparent, published descriptive statistics — a picture of your timing, never a clinical measurement.": {
+    "During quiet, still, resting windows, NOOP looks at the timing between your heartbeats (R-R intervals) and draws their Poincaré scatter. From the cloud it computes its short and long axes (SD1, SD2) and a few plain regularity numbers. Movement and noisy windows are skipped, not shown. These are transparent, published descriptive statistics: a picture of your timing, never a clinical measurement.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -16395,7 +16373,29 @@
         }
       }
     },
-    "Estimate from PPG-derived R-R — relaxation guidance, not a clinical reading. Your pace drifts, so we date it and you can re-measure anytime.": {
+    "Estimate (partial data)": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stima, dati parziali"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "估算 — 部分数据"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "估算 — 部分資料"
+          }
+        }
+      }
+    },
+    "Estimate from PPG-derived R-R: relaxation guidance, not a clinical reading. Your pace drifts, so we date it and you can re-measure anytime.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -16417,7 +16417,7 @@
         }
       }
     },
-    "Estimate from today's effort, your typical sleep and your %lld-night recovery baseline — not a measurement. Your real Charge is scored from tomorrow's HRV when you wake.": {
+    "Estimate from today's effort, your typical sleep and your %lld-night recovery baseline, not a measurement. Your real Charge is scored from tomorrow's HRV when you wake.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -16439,7 +16439,7 @@
         }
       }
     },
-    "Estimate only , a higher RMSSD while paced usually means your parasympathetic \"rest\" branch is engaging. It is not a clinical reading; trends over a session matter more than any single number.": {
+    "Estimate only, a higher RMSSD while paced usually means your parasympathetic \"rest\" branch is engaging. It is not a clinical reading; trends over a session matter more than any single number.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -16491,7 +16491,7 @@
         }
       }
     },
-    "Estimate only — a higher RMSSD while paced usually means your parasympathetic \"rest\" branch is engaging. It is not a clinical reading; trends over a session matter more than any single number.": {
+    "Estimate only: a higher RMSSD while paced usually means your parasympathetic \"rest\" branch is engaging. It is not a clinical reading; trends over a session matter more than any single number.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -16509,28 +16509,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "僅為估計 — 節律呼吸時較高的 RMSSD 通常意味著你副交感神經的「休息」分支正在發揮作用。這不是臨床讀數；一次工作階段內的趨勢比任何單一數值都更重要。"
-          }
-        }
-      }
-    },
-    "Estimate — partial data": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stima, dati parziali"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "估算 — 部分数据"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "估算 — 部分資料"
           }
         }
       }
@@ -16697,7 +16675,7 @@
         }
       }
     },
-    "Every beat, every night, every day , woven into one quiet picture of you. Welcome to NOOP.": {
+    "Every beat, every night, every day, woven into one quiet picture of you. Welcome to NOOP.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -16726,35 +16704,13 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ogni battito, ogni notte, ogni giorno, intrecciati in un quadro silenzioso di te. Benvenuto in NOOP."
+            "value": "Ogni battito, ogni notte, ogni giorno, intrecciati in un'unica immagine serena di te. Benvenuto su NOOP."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Каждый удар сердца, каждая ночь, каждый день , всё складывается в цельную картину вашего состояния. Добро пожаловать в NOOP!"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每一次心跳、每一个夜晚、每一天——交织成一幅关于你的静谧图景。欢迎使用 NOOP。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每一次心跳、每一個夜晚、每一天——交織成一幅關於你的靜謐圖景。歡迎使用 NOOP。"
-          }
-        }
-      }
-    },
-    "Every beat, every night, every day — woven into one quiet picture of you. Welcome to NOOP.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ogni battito, ogni notte, ogni giorno, intrecciati in un'unica immagine serena di te. Benvenuto su NOOP."
           }
         },
         "zh-Hans": {
@@ -16941,7 +16897,7 @@
         }
       }
     },
-    "Everyone has a breathing pace — usually between 4.5 and 7 breaths a minute — where the heart's rhythm swings the most with each breath. We pace you through a few candidate paces, measure how your HRV responds, and lock the one that resonates best for you.": {
+    "Everyone has a breathing pace (usually between 4.5 and 7 breaths a minute) where the heart's rhythm swings the most with each breath. We pace you through a few candidate paces, measure how your HRV responds, and lock the one that resonates best for you.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -17235,7 +17191,7 @@
         }
       }
     },
-    "Experimental wellness visualization — not a diagnosis, not an ECG, and not a medical device. It cannot detect any heart condition. Beat-to-beat variation has many ordinary, benign causes. If you feel unwell or are worried, contact a qualified professional; in an emergency, your local emergency service. Everything is computed on your device.": {
+    "Experimental wellness visualization: not a diagnosis, not an ECG, and not a medical device. It cannot detect any heart condition. Beat-to-beat variation has many ordinary, benign causes. If you feel unwell or are worried, contact a qualified professional; in an emergency, your local emergency service. Everything is computed on your device.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -18283,7 +18239,7 @@
         }
       }
     },
-    "Flags accepted, but the enable sequence doesn't start a separate live stream — the deep records arrive as part of the normal history sync (#494).": {
+    "Flags accepted, but the enable sequence doesn't start a separate live stream. The deep records arrive as part of the normal history sync (#494).": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -18541,7 +18497,7 @@
         }
       }
     },
-    "Fused on %@. Nothing leaves it — no account, no cloud.": {
+    "Fused on %@. Nothing leaves it: no account, no cloud.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -18755,7 +18711,7 @@
         }
       }
     },
-    "GitHub — code, releases, issues and the wiki.": {
+    "GitHub: code, releases, issues and the wiki.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -18901,28 +18857,6 @@
         }
       }
     },
-    "Grab this when you report a bug — it tells me what the app saw. (The full live log is also on the Live screen.)": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prendi questo quando segnali un bug, mi dice cosa ha visto l'app. (Il registro completo in diretta è anche nella schermata In diretta.)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "报告错误时抓取此内容 — 它会告诉我应用看到了什么。（完整的实时日志也在「实时」界面上。）"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "報告錯誤時抓取此內容 — 它會告訴我應用程式看到了什麼。（完整的即時日誌也在「即時」畫面上。）"
-          }
-        }
-      }
-    },
     "Grab this when you report a bug. It tells me what the app saw.": {
       "localizations": {
         "it": {
@@ -18941,6 +18875,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "報告錯誤時抓取此內容。它會告訴我應用程式看到了什麼。"
+          }
+        }
+      }
+    },
+    "Grab this when you report a bug. It tells me what the app saw. (The full live log is also on the Live screen.)": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prendi questo quando segnali un bug, mi dice cosa ha visto l'app. (Il registro completo in diretta è anche nella schermata In diretta.)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "报告错误时抓取此内容 — 它会告诉我应用看到了什么。（完整的实时日志也在「实时」界面上。）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "報告錯誤時抓取此內容 — 它會告訴我應用程式看到了什麼。（完整的即時日誌也在「即時」畫面上。）"
           }
         }
       }
@@ -20193,7 +20149,7 @@
         }
       }
     },
-    "Holds the screen awake while you're recording a workout, so your live heart rate stays visible without the device dimming. Only applies during a recording — the screen sleeps normally the rest of the time. Leaving it on does use a bit more battery, and means your unlocked screen stays visible for the whole workout, so flip it off if that's a concern.": {
+    "Holds the screen awake while you're recording a workout, so your live heart rate stays visible without the device dimming. Only applies during a recording. The screen sleeps normally the rest of the time. Leaving it on does use a bit more battery, and means your unlocked screen stays visible for the whole workout, so flip it off if that's a concern.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -20467,7 +20423,7 @@
         }
       }
     },
-    "How NOOP splits a night into light / deep / REM. This is a separate, opt-in recipe — your default staging is unchanged unless you turn it on.": {
+    "How NOOP splits a night into light / deep / REM. This is a separate, opt-in recipe. Your default staging is unchanged unless you turn it on.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -21109,7 +21065,7 @@
         }
       }
     },
-    "I keep this project anonymous, so crypto is the only way to chip in , no Patreon, no PayPal, no name attached. Quick, global, and private for both of us.": {
+    "I keep this project anonymous, so crypto is the only way to chip in, no Patreon, no PayPal, no name attached. Quick, global, and private for both of us.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -21161,7 +21117,7 @@
         }
       }
     },
-    "I keep this project anonymous, so crypto is the only way to chip in — no Patreon, no PayPal, no name attached. Quick, global, and private for both of us.": {
+    "I keep this project anonymous, so crypto is the only way to chip in: no Patreon, no PayPal, no name attached. Quick, global, and private for both of us.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -21315,7 +21271,7 @@
         }
       }
     },
-    "If it's saving you a subscription, a suggested $50+ — a fraction of a year of WHOOP — genuinely keeps the project alive. Anything is appreciated. Crypto only; the project stays anonymous.": {
+    "If it's saving you a subscription, a suggested $50+ (a fraction of a year of WHOOP) genuinely keeps the project alive. Anything is appreciated. Crypto only; the project stays anonymous.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -21447,7 +21403,7 @@
         }
       }
     },
-    "Import a WHOOP export, Apple Health or a second band and your best-sourced record builds here — on this device.": {
+    "Import a WHOOP export, Apple Health or a second band and your best-sourced record builds here, on this device.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -21587,7 +21543,7 @@
         }
       }
     },
-    "Importing overwrites everything currently on %@. Your old data is kept in a side file just in case. NOOP needs a relaunch for an import to take effect. Export CSV writes a WHOOP-format zip of your days, sleeps, workouts and journal that re-imports into NOOP on Mac, iPhone, or Android — on-device computed rows are marked APPROXIMATE in its Source column; the full backup stays the lossless restore path.": {
+    "Importing overwrites everything currently on %@. Your old data is kept in a side file just in case. NOOP needs a relaunch for an import to take effect. Export CSV writes a WHOOP-format zip of your days, sleeps, workouts and journal that re-imports into NOOP on Mac, iPhone, or Android. On-device computed rows are marked APPROXIMATE in its Source column; the full backup stays the lossless restore path.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -21787,7 +21743,7 @@
         }
       }
     },
-    "Informational only — not medical advice.": {
+    "Informational only, not medical advice.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -22209,7 +22165,7 @@
         }
       }
     },
-    "It's a notebook, not a lab. NOOP lines up the numbers you enter — it doesn't test, read, or judge them. Not medical advice.": {
+    "It's a notebook, not a lab. NOOP lines up the numbers you enter. It doesn't test, read, or judge them. Not medical advice.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -22341,7 +22297,7 @@
         }
       }
     },
-    "Keeps the detailed beat-to-beat heart-rate stream running all day and night, not just while a live screen is open, so NOOP captures much more for overnight HRV, recovery and sleep. Uses more battery — your strap streams heart rate continuously while connected.": {
+    "Keeps the detailed beat-to-beat heart-rate stream running all day and night, not just while a live screen is open, so NOOP captures much more for overnight HRV, recovery and sleep. Uses more battery: your strap streams heart rate continuously while connected.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -22547,7 +22503,7 @@
         }
       }
     },
-    "Lab Book is a private notebook, not a medical service. NOOP stores and lines up the numbers you enter — it doesn't test, read, diagnose, or advise. Your records never leave %@; there's no account or cloud, so it isn't \"HIPAA-covered.\" Always rely on your doctor or pharmacist to interpret results.": {
+    "Lab Book is a private notebook, not a medical service. NOOP stores and lines up the numbers you enter. It doesn't test, read, diagnose, or advise. Your records never leave %@; there's no account or cloud, so it isn't \"HIPAA-covered.\" Always rely on your doctor or pharmacist to interpret results.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -22569,7 +22525,7 @@
         }
       }
     },
-    "Lab Book keeps your own numbers — it doesn't test, read, or judge them, and it's not medical advice. Everything stays on %@.": {
+    "Lab Book keeps your own numbers. It doesn't test, read, or judge them, and it's not medical advice. Everything stays on %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -23131,7 +23087,7 @@
         }
       }
     },
-    "Learning your baseline , %lld of %lld nights.": {
+    "Learning your baseline, %lld of %lld nights.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -23141,8 +23097,8 @@
         },
         "en": {
           "stringUnit": {
-            "state": "translated",
-            "value": "Learning your baseline , %lld of %lld nights."
+            "state": "new",
+            "value": "Learning your baseline, %1$lld of %2$lld nights."
           }
         },
         "es": {
@@ -23160,41 +23116,13 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apprendimento della tua linea di base, %lld di %lld notti."
+            "value": "Apprendimento della tua linea di base, %1$lld di %2$lld notti."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Формируем вашу норму , %lld из %lld ночей."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在学习你的基线——%lld / %lld 晚。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在學習你的基線——%lld / %lld 晚。"
-          }
-        }
-      }
-    },
-    "Learning your baseline, %lld of %lld nights.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Learning your baseline, %1$lld of %2$lld nights."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendimento della tua linea di base, %1$lld di %2$lld notti."
           }
         },
         "zh-Hans": {
@@ -23499,7 +23427,7 @@
         }
       }
     },
-    "Live HR works — free the strap to unlock buzz, alarms & sync": {
+    "Live HR works. Free the strap to unlock buzz, alarms & sync": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -23521,7 +23449,7 @@
         }
       }
     },
-    "Live heart rate already works on a WHOOP 5/MG strap. These probes go further and try to coax more out of it. They are guesses, off by default, and only ever touch a 5/MG strap , WHOOP 4.0 is never affected.": {
+    "Live heart rate already works on a WHOOP 5/MG strap. These probes go further and try to coax more out of it. They are guesses, off by default, and only ever touch a 5/MG strap, WHOOP 4.0 is never affected.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -23573,7 +23501,7 @@
         }
       }
     },
-    "Live heart rate already works on a WHOOP 5/MG strap. These probes go further and try to coax more out of it. They are guesses, off by default, and only ever touch a 5/MG strap — WHOOP 4.0 is never affected.": {
+    "Live heart rate already works on a WHOOP 5/MG strap. These probes go further and try to coax more out of it. They are guesses, off by default, and only ever touch a 5/MG strap. WHOOP 4.0 is never affected.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -24149,7 +24077,7 @@
         }
       }
     },
-    "Log behaviours above — after a few days of answers, NOOP ranks how each one moves your charge, HRV and rest. Importing a WHOOP export (which includes its journal) backfills history instantly.": {
+    "Log behaviours above. After a few days of answers, NOOP ranks how each one moves your charge, HRV and rest. Importing a WHOOP export (which includes its journal) backfills history instantly.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -24581,7 +24509,7 @@
         }
       }
     },
-    "Make %@ your active strap? From now on it provides your live data. %@'s history stays exactly as it is — only new days come from %@.": {
+    "Make %@ your active strap? From now on it provides your live data. %@'s history stays exactly as it is. Only new days come from %@.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -24653,7 +24581,7 @@
         }
       }
     },
-    "Make the strap do things , tap to act, walk away to lock, train by feel.": {
+    "Make the strap do things, tap to act, walk away to lock, train by feel.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -24705,7 +24633,7 @@
         }
       }
     },
-    "Make the strap do things — tap to act, walk away to lock, train by feel.": {
+    "Make the strap do things: tap to act, walk away to lock, train by feel.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -24771,7 +24699,7 @@
         }
       }
     },
-    "Makes your WHOOP 5.0/MG advertise its heart rate as a standard Bluetooth HR sensor, so a Garmin (Edge/watch), Zwift or gym equipment can use it during a workout. Applied on the next connection (and immediately if connected); writes the strap's whoop_live_hr_in_adv_ind_pkt flag. Reversible. iPhone-side only — a Mac can't write to a 5/MG.": {
+    "Makes your WHOOP 5.0/MG advertise its heart rate as a standard Bluetooth HR sensor, so a Garmin (Edge/watch), Zwift or gym equipment can use it during a workout. Applied on the next connection (and immediately if connected); writes the strap's whoop_live_hr_in_adv_ind_pkt flag. Reversible. iPhone-side only. A Mac can't write to a 5/MG.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -25829,7 +25757,7 @@
         }
       }
     },
-    "Mirror — noop.fans": {
+    "Mirror: noop.fans": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26043,7 +25971,7 @@
         }
       }
     },
-    "Mostly %@ — %@.": {
+    "Mostly %@ (%@).": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -26137,7 +26065,29 @@
         }
       }
     },
-    "Move all your NOOP data to another machine. Export saves everything , history, sleeps, workouts, settings , to a single file you can copy across; import replaces this Mac's data with a backup.": {
+    "Move all your NOOP data to another machine. Export saves everything (history, sleeps, workouts, settings) to a single file you can copy across; import replaces %@'s data with a backup.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sposta tutti i tuoi dati NOOP su un altro dispositivo. L'esportazione salva tutto, cronologia, sonni, allenamenti, impostazioni, in un unico file che puoi copiare; l'importazione sostituisce i dati di %@ con un backup."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将你所有的 NOOP 数据迁移到另一台机器。导出会把一切 — 历史、睡眠、锻炼、设置 — 保存到一个可供复制的单一文件中；导入则用备份替换 %@ 的数据。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將你所有的 NOOP 資料遷移到另一台機器。匯出會把一切 — 歷史、睡眠、鍛鍊、設定 — 保存到一個可供複製的單一檔案中；匯入則用備份替換 %@ 的資料。"
+          }
+        }
+      }
+    },
+    "Move all your NOOP data to another machine. Export saves everything, history, sleeps, workouts, settings, to a single file you can copy across; import replaces this Mac's data with a backup.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -26185,28 +26135,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "將你所有的 NOOP 資料遷移到另一台機器。匯出會把一切——歷史、睡眠、鍛鍊、設定——保存到一個可供複製的單一檔案中；匯入則用備份替換這台 Mac 的資料。"
-          }
-        }
-      }
-    },
-    "Move all your NOOP data to another machine. Export saves everything — history, sleeps, workouts, settings — to a single file you can copy across; import replaces %@'s data with a backup.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sposta tutti i tuoi dati NOOP su un altro dispositivo. L'esportazione salva tutto, cronologia, sonni, allenamenti, impostazioni, in un unico file che puoi copiare; l'importazione sostituisce i dati di %@ con un backup."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将你所有的 NOOP 数据迁移到另一台机器。导出会把一切 — 历史、睡眠、锻炼、设置 — 保存到一个可供复制的单一文件中；导入则用备份替换 %@ 的数据。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將你所有的 NOOP 資料遷移到另一台機器。匯出會把一切 — 歷史、睡眠、鍛鍊、設定 — 保存到一個可供複製的單一檔案中；匯入則用備份替換 %@ 的資料。"
           }
         }
       }
@@ -26507,59 +26435,7 @@
         }
       }
     },
-    "NOOP , all your data, none of the cloud.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP , all deine Daten, nichts in der Cloud."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP , all your data, none of the cloud."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP: todos tus datos, nada en la nube."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP , toutes vos données, sans le cloud."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP, tutti i tuoi dati, niente cloud."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP , все ваши данные, без облачных сервисов."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP——你的全部数据，不上云端。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOOP——你的全部資料，不上雲端。"
-          }
-        }
-      }
-    },
-    "NOOP can read a coarse menstrual-cycle phase from your nightly skin temperature — entirely on your device. It is awareness only: not contraception, not a fertility predictor, not a medical service.": {
+    "NOOP can read a coarse menstrual-cycle phase from your nightly skin temperature, entirely on your device. It is awareness only: not contraception, not a fertility predictor, not a medical service.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26625,7 +26501,7 @@
         }
       }
     },
-    "NOOP estimates your steps from your WHOOP's motion, calibrated to your phone's step count. It's an estimate, not a step counter — a WHOOP 4.0 doesn't transmit steps.": {
+    "NOOP estimates your steps from your WHOOP's motion, calibrated to your phone's step count. It's an estimate, not a step counter. A WHOOP 4.0 doesn't transmit steps.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26647,7 +26523,7 @@
         }
       }
     },
-    "NOOP gives you three daily scores — Charge, Effort and Rest — each on a 0–100 scale. They're built from your strap's raw signals using published, peer-reviewed sport science, and computed entirely on your device. They are NOT WHOOP's scores: we don't have WHOOP's private algorithms and don't pretend to. They aim at the same three questions using open science, so they'll usually track WHOOP's in direction, but won't match number-for-number — and that's the point.": {
+    "NOOP gives you three daily scores (Charge, Effort and Rest), each on a 0–100 scale. They're built from your strap's raw signals using published, peer-reviewed sport science, and computed entirely on your device. They are NOT WHOOP's scores: we don't have WHOOP's private algorithms and don't pretend to. They aim at the same three questions using open science, so they'll usually track WHOOP's in direction, but won't match number-for-number. And that's the point.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26795,7 +26671,7 @@
         }
       }
     },
-    "NOOP never fills this in — it only shows back exactly what you type from your own report.": {
+    "NOOP never fills this in. It only shows back exactly what you type from your own report.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26861,7 +26737,7 @@
         }
       }
     },
-    "NOOP pairs directly with your WHOOP over Bluetooth , no WHOOP app, no cloud.": {
+    "NOOP pairs directly with your WHOOP over Bluetooth, no WHOOP app, no cloud.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -26913,7 +26789,7 @@
         }
       }
     },
-    "NOOP pairs directly with your WHOOP over Bluetooth — no WHOOP app, no cloud.": {
+    "NOOP pairs directly with your WHOOP over Bluetooth: no WHOOP app, no cloud.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -26935,7 +26811,7 @@
         }
       }
     },
-    "NOOP picks the best-sourced number and shows you where each came from. It's for wellness and curiosity — it doesn't diagnose or replace medical advice.": {
+    "NOOP picks the best-sourced number and shows you where each came from. It's for wellness and curiosity. It doesn't diagnose or replace medical advice.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -27001,7 +26877,7 @@
         }
       }
     },
-    "NOOP scores your charge, effort and rest itself — on-device, no cloud.": {
+    "NOOP scores your charge, effort and rest itself: on-device, no cloud.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -27023,7 +26899,7 @@
         }
       }
     },
-    "NOOP scores your recovery, strain and sleep itself , on-device, no cloud.": {
+    "NOOP scores your recovery, strain and sleep itself, on-device, no cloud.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -27075,7 +26951,7 @@
         }
       }
     },
-    "NOOP shows the %@ reading because it %@ for this metric — a higher-trust source here, not a verdict that the others are wrong.": {
+    "NOOP shows the %@ reading because it %@ for this metric: a higher-trust source here, not a verdict that the others are wrong.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -27147,24 +27023,54 @@
         }
       }
     },
-    "NOOP — all your data, none of the cloud.": {
+    "NOOP, all your data, none of the cloud.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP , all deine Daten, nichts in der Cloud."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP , all your data, none of the cloud."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP: todos tus datos, nada en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP , toutes vos données, sans le cloud."
+          }
+        },
         "it": {
           "stringUnit": {
             "state": "translated",
             "value": "NOOP, tutti i tuoi dati, niente cloud."
           }
         },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP , все ваши данные, без облачных сервисов."
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOOP — 你的全部数据，不上云端。"
+            "value": "NOOP——你的全部数据，不上云端。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOOP — 你的全部資料，不上雲端。"
+            "value": "NOOP——你的全部資料，不上雲端。"
           }
         }
       }
@@ -27217,6 +27123,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "由 NOOP 計算"
+          }
+        }
+      }
+    },
+    "NOOP: all your data, none of the cloud.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP, tutti i tuoi dati, niente cloud."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP — 你的全部数据，不上云端。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOOP — 你的全部資料，不上雲端。"
           }
         }
       }
@@ -28443,7 +28371,7 @@
         }
       }
     },
-    "No nights with sleep data yet — your ledger fills in as you wear the strap to bed.": {
+    "No nights with sleep data yet. Your ledger fills in as you wear the strap to bed.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -28789,7 +28717,7 @@
         }
       }
     },
-    "No workouts yet. They come from your WHOOP and Apple Health history. Import in Data Sources to bring them in — or add one you tracked elsewhere.": {
+    "No workouts yet. They come from your WHOOP and Apple Health history. Import in Data Sources to bring them in, or add one you tracked elsewhere.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -29137,7 +29065,7 @@
         }
       }
     },
-    "Not connected — open Live to pair.": {
+    "Not connected. Open Live to pair.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -29159,7 +29087,7 @@
         }
       }
     },
-    "Not enough clean beat data to lock a pace today — try again rested, sitting still with the strap snug. For now we'll pace you at 5.5 br/min (coherence).": {
+    "Not enough clean beat data to lock a pace today. Try again rested, sitting still with the strap snug. For now we'll pace you at 5.5 br/min (coherence).": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -29181,7 +29109,7 @@
         }
       }
     },
-    "Not enough clean beats — sit still and try again. %lld of %lld beats survived filtering (need %lld).": {
+    "Not enough clean beats. Sit still and try again. %lld of %lld beats survived filtering (need %lld).": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -29697,7 +29625,7 @@
         }
       }
     },
-    "Nothing here yet. This sideloaded install can't read Apple Health directly — import a Health export .zip in Data Sources, or turn on Shortcuts Export to bring your strap data into Health.": {
+    "Nothing here yet. This sideloaded install can't read Apple Health directly. Import a Health export .zip in Data Sources, or turn on Shortcuts Export to bring your strap data into Health.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -29963,7 +29891,7 @@
         }
       }
     },
-    "Nothing to reclaim right now — NOOP already cleans up import scratch space automatically.": {
+    "Nothing to reclaim right now. NOOP already cleans up import scratch space automatically.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -30037,7 +29965,7 @@
         }
       }
     },
-    "Notifications are off, so this can't buzz yet — turn on the master switch in Notifications to let it through.": {
+    "Notifications are off, so this can't buzz yet. Turn on the master switch in Notifications to let it through.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -30229,7 +30157,29 @@
         }
       }
     },
-    "Off , the coach answers generally and sends none of your metrics.": {
+    "Off baseline": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuori dalla linea di base"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "偏离基线"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "偏離基線"
+          }
+        }
+      }
+    },
+    "Off, the coach answers generally and sends none of your metrics.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -30281,29 +30231,7 @@
         }
       }
     },
-    "Off baseline": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fuori dalla linea di base"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏离基线"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏離基線"
-          }
-        }
-      }
-    },
-    "Off — only your core metrics are shared, not your patterns or Lab Book.": {
+    "Off: only your core metrics are shared, not your patterns or Lab Book.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -30325,7 +30253,7 @@
         }
       }
     },
-    "Off — the coach answers generally and sends none of your metrics.": {
+    "Off: the coach answers generally and sends none of your metrics.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -30387,58 +30315,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 %@ 上"
-          }
-        }
-      }
-    },
-    "On , your recovery, sleep, HRV and workouts are shared with the provider for tailored coaching.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An , deine Erholung, dein Schlaf, deine HRV und Workouts werden für maßgeschneidertes Coaching mit dem Anbieter geteilt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On , your recovery, sleep, HRV and workouts are shared with the provider for tailored coaching."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activado: tu recuperación, sueño, VFC y entrenamientos se comparten con el proveedor para un asesoramiento personalizado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activé , votre récupération, sommeil, VFC et entraînements sont partagés avec le fournisseur pour un coaching personnalisé."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On, il tuo recupero, sonno, HRV e allenamenti vengono condivisi con il provider per un coaching su misura."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вкл. , ваше восстановление, сон, ВСР и тренировки передаются провайдеру для персональных рекомендаций."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开启——你的恢复、睡眠、HRV 和锻炼会分享给服务商，以获得量身定制的指导。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開啟——你的恢復、睡眠、HRV 和鍛鍊會分享給服務供應商，以獲得量身定制的指導。"
           }
         }
       }
@@ -30539,46 +30415,54 @@
         }
       }
     },
-    "On — a short summary of your strongest patterns and logged health numbers is added. Summaries only, never raw readings.": {
+    "On, your recovery, sleep, HRV and workouts are shared with the provider for tailored coaching.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An , deine Erholung, dein Schlaf, deine HRV und Workouts werden für maßgeschneidertes Coaching mit dem Anbieter geteilt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On , your recovery, sleep, HRV and workouts are shared with the provider for tailored coaching."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activado: tu recuperación, sueño, VFC y entrenamientos se comparten con el proveedor para un asesoramiento personalizado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé , votre récupération, sommeil, VFC et entraînements sont partagés avec le fournisseur pour un coaching personnalisé."
+          }
+        },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "On, viene aggiunto un breve riepilogo dei tuoi schemi più marcati e dei dati di salute registrati. Solo riepiloghi, mai letture grezze."
+            "value": "On, il tuo recupero, sonno, HRV e allenamenti vengono condivisi con il provider per un coaching su misura."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкл. , ваше восстановление, сон, ВСР и тренировки передаются провайдеру для персональных рекомендаций."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启 — 会附上你最显著的规律和已记录健康数字的简短摘要。仅摘要，绝不包含原始读数。"
+            "value": "开启——你的恢复、睡眠、HRV 和锻炼会分享给服务商，以获得量身定制的指导。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟 — 會附上你最顯著的規律和已記錄健康數字的簡短摘要。僅摘要，絕不包含原始讀數。"
-          }
-        }
-      }
-    },
-    "On — your charge, rest, HRV and workouts are shared with the provider for tailored coaching.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On, la tua carica, il riposo, l'HRV e gli Allenamenti vengono condivisi con il provider per un coaching su misura."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开启 — 你的能量、休息、HRV 和锻炼会分享给服务商，以获得量身定制的指导。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開啟 — 你的能量、休息、HRV 和鍛鍊會分享給服務供應商，以獲得量身定制的指導。"
+            "value": "開啟——你的恢復、睡眠、HRV 和鍛鍊會分享給服務供應商，以獲得量身定制的指導。"
           }
         }
       }
@@ -30627,7 +30511,51 @@
         }
       }
     },
-    "Once NOOP has 14 nights of history, in-range compares each vital to your own baseline (approximate — not medical advice); until then, typical adult ranges apply.": {
+    "On: a short summary of your strongest patterns and logged health numbers is added. Summaries only, never raw readings.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On, viene aggiunto un breve riepilogo dei tuoi schemi più marcati e dei dati di salute registrati. Solo riepiloghi, mai letture grezze."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启 — 会附上你最显著的规律和已记录健康数字的简短摘要。仅摘要，绝不包含原始读数。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟 — 會附上你最顯著的規律和已記錄健康數字的簡短摘要。僅摘要，絕不包含原始讀數。"
+          }
+        }
+      }
+    },
+    "On: your charge, rest, HRV and workouts are shared with the provider for tailored coaching.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On, la tua carica, il riposo, l'HRV e gli Allenamenti vengono condivisi con il provider per un coaching su misura."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启 — 你的能量、休息、HRV 和锻炼会分享给服务商，以获得量身定制的指导。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟 — 你的能量、休息、HRV 和鍛鍊會分享給服務供應商，以獲得量身定制的指導。"
+          }
+        }
+      }
+    },
+    "Once NOOP has 14 nights of history, in-range compares each vital to your own baseline (approximate, not medical advice); until then, typical adult ranges apply.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -30965,7 +30893,7 @@
         }
       }
     },
-    "Opens the GitHub releases page in your browser. NOOP itself makes no network connections , the macOS sandbox has no network entitlement.": {
+    "Opens the GitHub releases page in your browser. NOOP itself makes no network connections, the macOS sandbox has no network entitlement.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -31105,29 +31033,7 @@
         }
       }
     },
-    "Optional — adds your VO₂max estimate. The Fitness Age itself doesn't need it. Measure around your middle, at the navel.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Facoltativo, aggiunge la tua stima del VO₂max. L'Età di fitness in sé non ne ha bisogno. Misura intorno al punto vita, all'altezza dell'ombelico."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可选 — 会加上你的最大摄氧量估算。体能年龄本身并不需要它。请在腰部、肚脐位置测量。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可選 — 會加上你的最大攝氧量估算。體能年齡本身並不需要它。請在腰部、肚臍位置測量。"
-          }
-        }
-      }
-    },
-    "Optional. Add a photo for the avatar in the top-left. Stored only on %@ — NOOP is offline, so it's never uploaded.": {
+    "Optional. Add a photo for the avatar in the top-left. Stored only on %@. NOOP is offline, so it's never uploaded.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -31167,6 +31073,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "可選。僅儲存在這台裝置上。"
+          }
+        }
+      }
+    },
+    "Optional: adds your VO₂max estimate. The Fitness Age itself doesn't need it. Measure around your middle, at the navel.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facoltativo, aggiunge la tua stima del VO₂max. L'Età di fitness in sé non ne ha bisogno. Misura intorno al punto vita, all'altezza dell'ombelico."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选 — 会加上你的最大摄氧量估算。体能年龄本身并不需要它。请在腰部、肚脐位置测量。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可選 — 會加上你的最大攝氧量估算。體能年齡本身並不需要它。請在腰部、肚臍位置測量。"
           }
         }
       }
@@ -31739,7 +31667,7 @@
         }
       }
     },
-    "Patterns in your own data — association, not cause.": {
+    "Patterns in your own data: association, not cause.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -32329,7 +32257,7 @@
         }
       }
     },
-    "Pick a sport — NOOP records HR, peak, average and effort from the live feed.": {
+    "Pick a sport. NOOP records HR, peak, average and effort from the live feed.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -33095,7 +33023,7 @@
         }
       }
     },
-    "Questions, feedback, bugs , %@": {
+    "Questions, feedback, bugs, %@": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -33553,7 +33481,7 @@
         }
       }
     },
-    "Ranked, lag-aware: which of your habits actually move your Charge — plus your personal alcohol/caffeine dose-response.": {
+    "Ranked, lag-aware: which of your habits actually move your Charge, plus your personal alcohol/caffeine dose-response.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -34939,7 +34867,7 @@
         }
       }
     },
-    "Recovery weighs your HRV against your personal baseline (~60%), resting heart rate (~20%), sleep performance (~15%) and respiration (~5%). Day strain is a 0–21 cardiovascular load from time in heart-rate zones. Sleep is staged from movement and heart rate. Everything is computed here from the strap's raw data , it works for any day NOOP collected raw streams.": {
+    "Recovery weighs your HRV against your personal baseline (~60%), resting heart rate (~20%), sleep performance (~15%) and respiration (~5%). Day strain is a 0–21 cardiovascular load from time in heart-rate zones. Sleep is staged from movement and heart rate. Everything is computed here from the strap's raw data, it works for any day NOOP collected raw streams.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -35205,7 +35133,7 @@
         }
       }
     },
-    "Relaxation guidance from your own numbers — not a health alert, and not a diagnosis. Trends matter more than any single number.": {
+    "Relaxation guidance from your own numbers: not a health alert, and not a diagnosis. Trends matter more than any single number.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -36665,7 +36593,7 @@
         }
       }
     },
-    "Rhythm only looks during quiet, still, resting windows — so it needs a calm night's worth of steady beats. Once there's a clean window, the scatter and its description show here.": {
+    "Rhythm only looks during quiet, still, resting windows, so it needs a calm night's worth of steady beats. Once there's a clean window, the scatter and its description show here.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -37373,7 +37301,29 @@
         }
       }
     },
-    "Saves every raw 5/MG frame (with a timestamp and the live heart rate) to a JSON file you can share to help map the biometric layout. This only records frames the strap already sent , it never writes to your strap , so it is safe to leave on. Export the file and attach it to a protocol-mapping issue.": {
+    "Saves every raw 5/MG frame (with a timestamp and the live heart rate) to a JSON file you can share to help map the biometric layout. This only records frames the strap already sent (it never writes to your strap), so it is safe to leave on. Export the file and attach it to a protocol-mapping issue.": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salva ogni frame grezzo 5/MG (con un timestamp e la frequenza cardiaca in diretta) in un file JSON che puoi condividere per aiutare a mappare la struttura biometrica. Registra solo i frame che la fascia ha già inviato, non scrive mai sulla tua fascia, quindi è sicuro lasciarlo attivo. Esporta il file e allegalo a una segnalazione di mappatura del protocollo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将每一个原始 5/MG 帧（带时间戳和实时心率）保存到一个 JSON 文件，你可以分享它来帮助绘制生物数据布局。它只记录手环已经发送的帧 — 绝不会向你的手环写入任何内容 — 因此可以放心保持开启。导出该文件并将其附加到协议映射的 issue 中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將每一個原始 5/MG 幀（帶時間戳和即時心率）保存到一個 JSON 檔案，你可以分享它來幫助繪製生物數據佈局。它只記錄手環已經發送的幀 — 絕不會向你的手環寫入任何內容 — 因此可以放心保持開啟。匯出該檔案並將其附加到協議對映的 issue 中。"
+          }
+        }
+      }
+    },
+    "Saves every raw 5/MG frame (with a timestamp and the live heart rate) to a JSON file you can share to help map the biometric layout. This only records frames the strap already sent, it never writes to your strap, so it is safe to leave on. Export the file and attach it to a protocol-mapping issue.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -37425,29 +37375,7 @@
         }
       }
     },
-    "Saves every raw 5/MG frame (with a timestamp and the live heart rate) to a JSON file you can share to help map the biometric layout. This only records frames the strap already sent — it never writes to your strap — so it is safe to leave on. Export the file and attach it to a protocol-mapping issue.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Salva ogni frame grezzo 5/MG (con un timestamp e la frequenza cardiaca in diretta) in un file JSON che puoi condividere per aiutare a mappare la struttura biometrica. Registra solo i frame che la fascia ha già inviato, non scrive mai sulla tua fascia, quindi è sicuro lasciarlo attivo. Esporta il file e allegalo a una segnalazione di mappatura del protocollo."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将每一个原始 5/MG 帧（带时间戳和实时心率）保存到一个 JSON 文件，你可以分享它来帮助绘制生物数据布局。它只记录手环已经发送的帧 — 绝不会向你的手环写入任何内容 — 因此可以放心保持开启。导出该文件并将其附加到协议映射的 issue 中。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將每一個原始 5/MG 幀（帶時間戳和即時心率）保存到一個 JSON 檔案，你可以分享它來幫助繪製生物數據佈局。它只記錄手環已經發送的幀 — 絕不會向你的手環寫入任何內容 — 因此可以放心保持開啟。匯出該檔案並將其附加到協議對映的 issue 中。"
-          }
-        }
-      }
-    },
-    "Saves the raw capture and the strap log together as a matched pair — attach both to a protocol-mapping issue.": {
+    "Saves the raw capture and the strap log together as a matched pair. Attach both to a protocol-mapping issue.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -37905,7 +37833,7 @@
         }
       }
     },
-    "Scores still calibrating — no single day-owner yet": {
+    "Scores still calibrating, no single day-owner yet": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -38089,7 +38017,7 @@
         }
       }
     },
-    "See how Charge, Effort and Rest are calculated — and how they differ from WHOOP.": {
+    "See how Charge, Effort and Rest are calculated, and how they differ from WHOOP.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -38155,7 +38083,7 @@
         }
       }
     },
-    "Self-tracking, not a clinical assessment. If low mood persists, talk to a professional — you deserve support.": {
+    "Self-tracking, not a clinical assessment. If low mood persists, talk to a professional. You deserve support.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -38465,7 +38393,7 @@
         }
       }
     },
-    "Set a wake time for specific days — a lie-in at the weekend, say. Days you leave alone use the time above.": {
+    "Set a wake time for specific days (a lie-in at the weekend, say). Days you leave alone use the time above.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -38701,7 +38629,29 @@
         }
       }
     },
-    "Share of imported zone time, duration-weighted across sessions , approximate.": {
+    "Share of imported zone time, duration-weighted across sessions (approximate).": {
+      "localizations": {
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quota del tempo in zona importato, ponderata per durata tra le sessioni, approssimativa."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入的各区间时间占比，按各会话的时长加权 — 近似值。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入的各區間時間佔比，按各工作階段的時長加權 — 近似值。"
+          }
+        }
+      }
+    },
+    "Share of imported zone time, duration-weighted across sessions, approximate.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -38749,28 +38699,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "匯入的各區間時間佔比，按各工作階段的時長加權——近似值。"
-          }
-        }
-      }
-    },
-    "Share of imported zone time, duration-weighted across sessions — approximate.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quota del tempo in zona importato, ponderata per durata tra le sessioni, approssimativa."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导入的各区间时间占比，按各会话的时长加权 — 近似值。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "匯入的各區間時間佔比，按各工作階段的時長加權 — 近似值。"
           }
         }
       }
@@ -39099,7 +39027,7 @@
         }
       }
     },
-    "Shows a soft sunrise, day, dusk and night scene behind the Today screen. Turn it off for a plain dark canvas — your cards stay exactly as readable.": {
+    "Shows a soft sunrise, day, dusk and night scene behind the Today screen. Turn it off for a plain dark canvas. Your cards stay exactly as readable.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -39231,7 +39159,7 @@
         }
       }
     },
-    "Silent haptic HIIT , the strap buzzes the transitions": {
+    "Silent haptic HIIT, the strap buzzes the transitions": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -39283,7 +39211,7 @@
         }
       }
     },
-    "Silent haptic HIIT — the strap buzzes the transitions": {
+    "Silent haptic HIIT: the strap buzzes the transitions": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -41517,7 +41445,7 @@
         }
       }
     },
-    "Strap data into Apple Health without HealthKit — for sideloaded installs.": {
+    "Strap data into Apple Health without HealthKit, for sideloaded installs.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -42332,7 +42260,7 @@
         }
       }
     },
-    "Support NOOP , donate or get in touch": {
+    "Support NOOP, donate or get in touch": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -42384,7 +42312,7 @@
         }
       }
     },
-    "Support NOOP — donate or get in touch": {
+    "Support NOOP: donate or get in touch": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -43148,7 +43076,7 @@
         }
       }
     },
-    "Tap when you're heading to bed or when you wake. Each tap is logged with the time — it doesn't change tonight's detected sleep.": {
+    "Tap when you're heading to bed or when you wake. Each tap is logged with the time. It doesn't change tonight's detected sleep.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -43414,7 +43342,7 @@
         }
       }
     },
-    "That's normal — a paced breath often settles things when a metronome alone doesn't.": {
+    "That's normal. A paced breath often settles things when a metronome alone doesn't.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -43618,7 +43546,7 @@
         }
       }
     },
-    "The strap buzzes a gentle rhythm just below your current heart rate — a felt metronome to relax toward. It trails your heart down rather than yanking it, and stops on its own.": {
+    "The strap buzzes a gentle rhythm just below your current heart rate, a felt metronome to relax toward. It trails your heart down rather than yanking it, and stops on its own.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -43802,7 +43730,7 @@
         }
       }
     },
-    "These are independent approximations from a consumer strap, built on open science — not medical advice, and not WHOOP's official scores.": {
+    "These are independent approximations from a consumer strap, built on open science: not medical advice, and not WHOOP's official scores.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -43890,7 +43818,7 @@
         }
       }
     },
-    "These days are excluded from the estimate (your phone's real count is shown instead) — they're here only so you can judge the estimate's accuracy.": {
+    "These days are excluded from the estimate (your phone's real count is shown instead). They're here only so you can judge the estimate's accuracy.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -44112,7 +44040,7 @@
         }
       }
     },
-    "This install can't connect to Apple Health directly. It was sideloaded with a free signing profile, which doesn't include Apple's Health permission — so there's nothing to enable, and NOOP won't appear under Settings › Health.": {
+    "This install can't connect to Apple Health directly. It was sideloaded with a free signing profile, which doesn't include Apple's Health permission, so there's nothing to enable, and NOOP won't appear under Settings › Health.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -44200,7 +44128,7 @@
         }
       }
     },
-    "This is the only feature that leaves %@ — it sends a summary of your metrics to %@ using your own key. Nothing is sent until you ask.": {
+    "This is the only feature that leaves %@. It sends a summary of your metrics to %@ using your own key. Nothing is sent until you ask.": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -44228,7 +44156,7 @@
         }
       }
     },
-    "This is the only feature that leaves your Mac , it sends a summary of your metrics to %@ using your own key. Nothing is sent until you ask.": {
+    "This is the only feature that leaves your Mac, it sends a summary of your metrics to %@ using your own key. Nothing is sent until you ask.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -44302,7 +44230,7 @@
         }
       }
     },
-    "This night scored high efficiency but very little deep or REM — more likely a staging estimate miss than a real restorative shortfall. The totals are kept as-is; read the split with care.": {
+    "This night scored high efficiency but very little deep or REM, more likely a staging estimate miss than a real restorative shortfall. The totals are kept as-is; read the split with care.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -44346,7 +44274,7 @@
         }
       }
     },
-    "This permanently deletes everything imported from Apple Health — heart rate, HRV, sleep, steps, workouts and more. Your live strap data is untouched. This can't be undone.": {
+    "This permanently deletes everything imported from Apple Health: heart rate, HRV, sleep, steps, workouts and more. Your live strap data is untouched. This can't be undone.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -44552,7 +44480,7 @@
         }
       }
     },
-    "Time in each %HRmax zone, derived from the strap's heart rate over this window — approximate.": {
+    "Time in each %HRmax zone, derived from the strap's heart rate over this window (approximate).": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -45406,7 +45334,7 @@
         }
       }
     },
-    "Track a workout manually — records heart rate and effort until you end it.": {
+    "Track a workout manually. Records heart rate and effort until you end it.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47056,7 +46984,7 @@
         }
       }
     },
-    "WHOOP 5/MG straps hand a fresh app only live heart rate. The official app switches on the deeper streams (high-rate HR + motion + history) by writing a set of feature flags — a sequence two independent projects have documented. With this on, the button below sends that exact sequence to your strap. Unlike everything else here it does write to the strap, but it's reversible (it only changes which data the strap chooses to emit) and is the same thing the official app does. Experimental: it may do nothing on your firmware. iPhone/Android only — a Mac can't write to a 5/MG.": {
+    "WHOOP 5/MG straps hand a fresh app only live heart rate. The official app switches on the deeper streams (high-rate HR + motion + history) by writing a set of feature flags, a sequence two independent projects have documented. With this on, the button below sends that exact sequence to your strap. Unlike everything else here it does write to the strap, but it's reversible (it only changes which data the strap chooses to emit) and is the same thing the official app does. Experimental: it may do nothing on your firmware. iPhone/Android only. A Mac can't write to a 5/MG.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47100,7 +47028,7 @@
         }
       }
     },
-    "WHOOP is NOOP's primary, fully-supported band. Other heart-rate straps are an early, in-development addition — they stream live heart rate and HRV, but not WHOOP's deeper sleep and recovery data.": {
+    "WHOOP is NOOP's primary, fully-supported band. Other heart-rate straps are an early, in-development addition: they stream live heart rate and HRV, but not WHOOP's deeper sleep and recovery data.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47144,7 +47072,7 @@
         }
       }
     },
-    "WHOOP straps don't appear in macOS System Settings → Bluetooth. They advertise on a custom profile that only apps like NOOP can find , so there's nothing to pair there, and you shouldn't try.": {
+    "WHOOP straps don't appear in macOS System Settings → Bluetooth. They advertise on a custom profile that only apps like NOOP can find, so there's nothing to pair there, and you shouldn't try.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -47196,7 +47124,7 @@
         }
       }
     },
-    "WHOOP straps don't appear in your %@'s Bluetooth settings. They advertise on a custom profile that only apps like NOOP can find — so there's nothing to pair there, and you shouldn't try.": {
+    "WHOOP straps don't appear in your %@'s Bluetooth settings. They advertise on a custom profile that only apps like NOOP can find, so there's nothing to pair there, and you shouldn't try.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47372,7 +47300,7 @@
         }
       }
     },
-    "Waiting for a resting heart rate — start a live reading first, or come back when you're still.": {
+    "Waiting for a resting heart rate. Start a live reading first, or come back when you're still.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47534,7 +47462,7 @@
         }
       }
     },
-    "Warming up — keep moving to climb into Zone 1.": {
+    "Warming up. Keep moving to climb into Zone 1.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47600,7 +47528,7 @@
         }
       }
     },
-    "We compare today's resting heart rate and HRV to your own 30-day baseline. A higher-than-usual resting HR and a lower-than-usual HRV both push the score up , classic signs the body is activated. The combined shift is mapped onto a 0–3 scale: 0 is calm, 1.5 sits at your baseline, 3 is highly activated.": {
+    "We compare today's resting heart rate and HRV to your own 30-day baseline. A higher-than-usual resting HR and a lower-than-usual HRV both push the score up, classic signs the body is activated. The combined shift is mapped onto a 0–3 scale: 0 is calm, 1.5 sits at your baseline, 3 is highly activated.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -47629,35 +47557,13 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confrontiamo la frequenza cardiaca a riposo e l'HRV di oggi con la tua linea di base di 30 giorni. Una FC a riposo più alta del solito e un HRV più basso del solito spingono entrambi il punteggio verso l'alto, segni classici di un corpo attivato. Lo spostamento combinato viene mappato su una scala 0–3: 0 è calmo, 1,5 corrisponde alla tua linea di base, 3 è altamente attivato."
+            "value": "Confrontiamo la frequenza cardiaca a riposo e l'HRV di oggi con la tua linea di base di 30 giorni. Una FC a riposo più alta del solito e un HRV più basso del solito spingono entrambi il punteggio verso l'alto, segni classici di un corpo attivato. Lo scostamento combinato viene mappato su una scala da 0 a 3: 0 è calmo, 1,5 corrisponde alla tua linea di base, 3 è altamente attivato."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Мы сравниваем сегодняшний пульс в покое и ВСР с вашей личной нормой за 30 дней. Пульс в покое выше обычного и ВСР ниже обычного повышают оценку , это классические признаки активации организма. Итоговое отклонение переводится в шкалу от 0 до 3: 0 , спокойное состояние, 1,5 , ваша норма, 3 , высокая активация."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我们将今天的静息心率和 HRV 与你自己的 30 天基线进行比较。高于平常的静息心率和低于平常的 HRV 都会推高评分——这是身体被激活的典型迹象。综合的偏移被映射到 0–3 的量表上：0 表示平静，1.5 处于你的基线，3 表示高度激活。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我們將今天的靜息心率和 HRV 與你自己的 30 天基線進行比較。高於平常的靜息心率和低於平常的 HRV 都會推高評分——這是身體被激活的典型跡象。綜合的偏移被映射到 0–3 的量表上：0 表示平靜，1.5 處於你的基線，3 表示高度激活。"
-          }
-        }
-      }
-    },
-    "We compare today's resting heart rate and HRV to your own 30-day baseline. A higher-than-usual resting HR and a lower-than-usual HRV both push the score up — classic signs the body is activated. The combined shift is mapped onto a 0–3 scale: 0 is calm, 1.5 sits at your baseline, 3 is highly activated.": {
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confrontiamo la frequenza cardiaca a riposo e l'HRV di oggi con la tua linea di base di 30 giorni. Una FC a riposo più alta del solito e un HRV più basso del solito spingono entrambi il punteggio verso l'alto, segni classici di un corpo attivato. Lo scostamento combinato viene mappato su una scala da 0 a 3: 0 è calmo, 1,5 corrisponde alla tua linea di base, 3 è altamente attivato."
           }
         },
         "zh-Hans": {
@@ -47696,7 +47602,7 @@
         }
       }
     },
-    "We're not seeing any motion from your strap yet. Steps are estimated from your WHOOP's banked motion history — so your strap needs to sync that history before NOOP has anything to count.": {
+    "We're not seeing any motion from your strap yet. Steps are estimated from your WHOOP's banked motion history, so your strap needs to sync that history before NOOP has anything to count.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -47954,7 +47860,7 @@
         }
       }
     },
-    "What Lab Book is — and isn't": {
+    "What Lab Book is (and isn't)": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -48256,7 +48162,7 @@
         }
       }
     },
-    "What tracks your mood — %lld check-ins": {
+    "What tracks your mood (%lld check-ins)": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -48500,7 +48406,7 @@
         }
       }
     },
-    "When this is on, NOOP rewrites a plain-text file — On My iPhone › NOOP › noop_sync.txt — each time you leave the app: one line per 15 minutes of heart rate, HRV and steps, read straight from your strap. Pair it with the Siri Shortcut that reads the file and logs everything into Apple Health — no HealthKit entitlement needed, so it works on sideloaded installs. The setup guide and the pre-built Shortcut live in the project wiki on GitHub.": {
+    "When this is on, NOOP rewrites a plain-text file (On My iPhone › NOOP › noop_sync.txt) each time you leave the app: one line per 15 minutes of heart rate, HRV and steps, read straight from your strap. Pair it with the Siri Shortcut that reads the file and logs everything into Apple Health (no HealthKit entitlement needed), so it works on sideloaded installs. The setup guide and the pre-built Shortcut live in the project wiki on GitHub.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -48522,7 +48428,7 @@
         }
       }
     },
-    "When you import an Apple Health or WHOOP export, iOS hands NOOP a private copy of the file. NOOP reads it, saves your data into the health database, then deletes the copy. Older builds didn't delete every copy — this screen reclaims any that were left behind.": {
+    "When you import an Apple Health or WHOOP export, iOS hands NOOP a private copy of the file. NOOP reads it, saves your data into the health database, then deletes the copy. Older builds didn't delete every copy. This screen reclaims any that were left behind.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -48544,7 +48450,7 @@
         }
       }
     },
-    "Where NOOP's on-device space is going — and a one-tap clean-up.": {
+    "Where NOOP's on-device space is going, and a one-tap clean-up.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -48972,7 +48878,7 @@
         }
       }
     },
-    "Wire NOOP's actions into a Back-Tap, a focus automation, or a longer Shortcut — for example, double-tap the back of your iPhone to buzz the strap.": {
+    "Wire NOOP's actions into a Back-Tap, a focus automation, or a longer Shortcut. For example, double-tap the back of your iPhone to buzz the strap.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -49268,7 +49174,7 @@
         }
       }
     },
-    "Wrist delivery isn't live yet , it needs a small on-device watcher (coming in an update) to read macOS notifications. Everything stays on this Mac. Your choices are saved now and will apply automatically once delivery ships.": {
+    "Wrist delivery isn't live yet, it needs a small on-device watcher (coming in an update) to read macOS notifications. Everything stays on this Mac. Your choices are saved now and will apply automatically once delivery ships.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -49320,7 +49226,7 @@
         }
       }
     },
-    "Wrist delivery isn't live yet — it needs a small on-device watcher (coming in an update) to read macOS notifications. Everything stays on this Mac. Your choices are saved now and will apply automatically once delivery ships.": {
+    "Wrist delivery isn't live yet. It needs a small on-device watcher (coming in an update) to read macOS notifications. Everything stays on this Mac. Your choices are saved now and will apply automatically once delivery ships.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -49826,7 +49732,7 @@
         }
       }
     },
-    "Your HRV dipped while you were still — want a minute to breathe?": {
+    "Your HRV dipped while you were still. Want a minute to breathe?": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -49936,7 +49842,7 @@
         }
       }
     },
-    "Your bloods, BP and body numbers — kept private, on %@.": {
+    "Your bloods, BP and body numbers. Kept private, on %@.": {
       "localizations": {
         "it": {
           "stringUnit": {
@@ -50260,7 +50166,7 @@
         }
       }
     },
-    "Your strap in real time , heart rate and frames as they arrive.": {
+    "Your strap in real time, heart rate and frames as they arrive.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -50582,7 +50488,7 @@
         }
       }
     },
-    "Zoomed in — drag to pan": {
+    "Zoomed in. Drag to pan": {
       "localizations": {
         "it": {
           "stringUnit": {

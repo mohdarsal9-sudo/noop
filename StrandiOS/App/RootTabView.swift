@@ -335,8 +335,8 @@ struct RootTabView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(title))
-            .accessibilityValue(Text(isOpen ? "Expanded" : "Collapsed"))
-            .accessibilityHint(Text(isOpen ? "Double tap to collapse" : "Double tap to expand"))
+            .accessibilityValue(Text(isOpen ? String(localized: "Expanded") : String(localized: "Collapsed")))
+            .accessibilityHint(Text(isOpen ? String(localized: "Double tap to collapse") : String(localized: "Double tap to expand")))
 
             if isOpen {
                 // Zero internal padding so each MoreRow owns its own comfortable insets + height; the rows

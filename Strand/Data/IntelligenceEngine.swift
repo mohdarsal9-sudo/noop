@@ -52,7 +52,7 @@ final class IntelligenceEngine: ObservableObject {
         /// (SleepView "On-device"/"Whoop", Today "Apple Health"). NO em-dashes.
         var badge: String {
             switch self {
-            case .computed:    return "On-device"
+            case .computed:    return String(localized: "On-device")
             case .whoopImport: return "Whoop"
             case .appleHealth: return "Apple Health"
             }
@@ -281,7 +281,7 @@ final class IntelligenceEngine: ObservableObject {
         // post-backfill rescore after a sync) , dropping it would leave a freshly-synced night unscored
         // until the next cycle. Re-arm instead: flag it so the running pass's `defer` re-invokes once.
         guard !computing else { if force { pendingForcedRescore = true }; return }
-        guard let store = await repo.storeHandle() else { note = "No on-device store yet."; return }
+        guard let store = await repo.storeHandle() else { note = String(localized: "No on-device store yet."); return }
         guard let hrvCfg = Baselines.metricCfg["hrv"],
               let rhrCfg = Baselines.metricCfg["resting_hr"],
               let respCfg = Baselines.metricCfg["resp"],

@@ -110,7 +110,7 @@ struct WatchGlanceView: View {
     /// snapshot is stale the rings above are already dashes, and this line carries the recency.
     private func asOf(_ snap: WatchScoreSnapshot) -> some View {
         let fresh = snap.freshnessText()
-        return Text(snap.isStale() ? "stale · \(fresh)" : "as of \(fresh)")
+        return Text(snap.isStale() ? String(localized: "stale · \(fresh)") : String(localized: "as of \(fresh)"))
             .font(StrandFont.footnote)
             .foregroundStyle(StrandPalette.textTertiary)
             .frame(maxWidth: .infinity)

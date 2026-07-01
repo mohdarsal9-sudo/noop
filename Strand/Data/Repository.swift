@@ -1169,15 +1169,15 @@ final class Repository: ObservableObject {
         /// User-facing pill label.
         var title: String {
             switch self {
-            case .hr: return "Heart Rate"
+            case .hr: return String(localized: "Heart Rate")
             // #803: the .hrv series is a TRAILING-WINDOW rMSSD moving across the session (HRVAnalyzer
             // .rollingRmssd), not one opaque "HRV" figure and not raw R-R ms. Label it honestly so the
             // pill names what the chart actually plots.
-            case .hrv: return "Windowed rMSSD"
+            case .hrv: return String(localized: "Windowed rMSSD")
             case .spo2: return "SpO₂"
-            case .skinTemp: return "Skin Temp"
-            case .respiration: return "Respiration"
-            case .motion: return "Motion"
+            case .skinTemp: return String(localized: "Skin Temp")
+            case .respiration: return String(localized: "Respiration")
+            case .motion: return String(localized: "Motion")
             }
         }
     }

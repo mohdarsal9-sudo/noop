@@ -977,9 +977,9 @@ final class AppModel: ObservableObject {
     static func postInactivity(minutes: Int) {
         #if os(iOS)
         let body = minutes > 0
-            ? "You've been seated for about \(minutes) min. Time to move."
-            : "Time to move , you've been seated a while."
-        postWristAlert(identifier: "inactivity-nudge", title: "Move reminder", body: body)
+            ? String(localized: "You've been seated for about \(minutes) min. Time to move.")
+            : String(localized: "Time to move. You've been seated a while.")
+        postWristAlert(identifier: "inactivity-nudge", title: String(localized: "Move reminder"), body: body)
         #endif
     }
 
@@ -987,8 +987,8 @@ final class AppModel: ObservableObject {
     /// `onSmartAlarmFired` hook. No-op on macOS and when wrist alerts are off.
     static func postSmartAlarm() {
         #if os(iOS)
-        postWristAlert(identifier: "smart-alarm-wake", title: "Smart alarm",
-                       body: "Good morning , your smart alarm just woke you.")
+        postWristAlert(identifier: "smart-alarm-wake", title: String(localized: "Smart alarm"),
+                       body: String(localized: "Good morning. Your smart alarm just woke you."))
         #endif
     }
 
@@ -1047,8 +1047,8 @@ final class AppModel: ObservableObject {
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else { return }
             let content = UNMutableNotificationContent()
-            content.title = "Smart alarm"
-            content.body = "Backup wake , your smart alarm time is here."
+            content.title = String(localized: "Smart alarm")
+            content.body = String(localized: "Backup wake: your smart alarm time is here.")
             content.sound = .default
             let hour = minutes / 60
             let minute = minutes % 60
