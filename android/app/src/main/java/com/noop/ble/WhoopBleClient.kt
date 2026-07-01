@@ -56,6 +56,7 @@ import com.noop.notif.InactivityNotifier
 import com.noop.ui.BiofeedbackPrefs
 import com.noop.ui.InactivityPrefs
 import com.noop.ui.NoopPrefs
+import com.noop.ui.NotifPrefs
 import com.noop.ui.ProfileStore
 import com.noop.ui.StressNudgeCenter
 import kotlinx.coroutines.CoroutineScope
@@ -757,6 +758,14 @@ class WhoopBleClient(
          *  BackfillContinuation.defaultBehindGapSeconds (and StuckStrapDetector's behindGapSeconds). */
         const val AUTO_CONTINUE_BEHIND_GAP_SECONDS = 300L
 
+        /** #928: how far past the WALL CLOCK the strap-reported "newest" may sit before it is implausible.
+         *  A strap clock set in the FUTURE makes [dataRangeNewestUnix] read ahead of every real frontier,
+         *  so the "backlog remains" guard would report backlog forever and burn the whole auto-continue
+         *  cap in EMPTY offloads on every connect. 48 h absorbs genuine timezone confusion and mild drift;
+         *  nothing legitimate banks records two days ahead of the phone's clock. Mirrors the Swift
+         *  BackfillContinuation.defaultFutureSkewSeconds. */
+        const val AUTO_CONTINUE_FUTURE_SKEW_SECONDS = 48L * 3600L
+
         /**
          * Decides whether a backfill session that ended on the 60s IDLE cap (NOT a true HISTORY_COMPLETE)
          * should immediately re-kick another offload instead of tearing down to wait the 900s periodic
@@ -781,18 +790,25 @@ class WhoopBleClient(
             stillConnected: Boolean,
             strapNewestTs: Long?,
             ourFrontierTs: Long?,
+            wallNowUnix: Long,
             lastTrimAdvanced: Boolean,
             consecutiveCount: Int,
             rowsPersistedThisSession: Int = 0,
             maxAutoContinues: Int = MAX_AUTO_CONTINUES,
             behindGapSeconds: Long = AUTO_CONTINUE_BEHIND_GAP_SECONDS,
+            futureSkewSeconds: Long = AUTO_CONTINUE_FUTURE_SKEW_SECONDS,
         ): Boolean {
             if (!stillConnected) return false                          // 1
             if (consecutiveCount >= maxAutoContinues) return false      // 4 (cap)
             if (!lastTrimAdvanced) return false                        // 3 (don't spin on a frozen cursor)
-            // 2a: strap reports newer data than we hold — reliable WHEN its clock epoch is sane.
-            val newest = strapNewestTs
+            // #928: a strap clock set in the FUTURE makes "newest" read ahead of ANY real frontier, so 2a
+            // would report backlog forever and drive up to the full cap in EMPTY offloads on every
+            // connect. A newest more than [futureSkewSeconds] past [wallNowUnix] (the REAL wall clock,
+            // passed in so the predicate stays pure) is implausible: exclude it (treat the range as
+            // unknown) so only demonstrated progress (2b, real rows) can continue the drain.
+            val newest = strapNewestTs?.takeIf { it <= wallNowUnix + futureSkewSeconds }
             val frontier = ourFrontierTs
+            // 2a: strap reports newer data than we hold — reliable WHEN its clock epoch is sane.
             if (newest != null && frontier != null && (newest - frontier) > behindGapSeconds) return true
             // 2b (#451): GET_DATA_RANGE's "newest" can read a STALE / wrong-epoch value — a strap that was
             // fully discharged (or carries a previous owner's history) banks records across multiple clock
@@ -802,6 +818,37 @@ class WhoopBleClient(
             // SENSOR ROWS the strap is still handing over real backlog — keep going. Empty / console-only
             // ENDs persist 0 rows, so a stuck or caught-up strap won't spin; the cap bounds it regardless.
             return rowsPersistedThisSession > 0
+        }
+
+        // #927: Continuous HRV "overnight only" window (pure, unit-tested in ContinuousHrvWindowTest).
+        //
+        // The window reuses the app's quiet-hours convention byte-for-byte (NotifPrefs.inQuietHours /
+        // SedentaryDetector.windowContains): minutes since LOCAL midnight, inclusive start, exclusive
+        // end, and the window may wrap midnight (22:00 → 07:00 by default). Local wall time keeps it
+        // DST-agnostic the same way quiet hours are: a DST jump moves the wall clock, the window
+        // definition never changes.
+
+        /** Wrap-aware membership: is [minuteOfDay] inside `[startMin, endMin)`, where the window may
+         *  cross midnight? Byte-for-byte the quiet-hours semantics. Mirrors the Swift
+         *  `ContinuousHrvSchedule.windowContains`. */
+        fun overnightWindowContains(minuteOfDay: Int, startMin: Int, endMin: Int): Boolean =
+            if (startMin <= endMin) minuteOfDay >= startMin && minuteOfDay < endMin
+            else minuteOfDay >= startMin || minuteOfDay < endMin
+
+        /** The composed continuous-capture mode (#927): false when the feature is off; true 24/7 when
+         *  [overnightOnly] is off (ALWAYS, the pre-#927 behaviour, so existing users read it with no
+         *  migration since the new key defaults to false); window-gated when both are on. Mirrors the
+         *  Swift `ContinuousHrvSchedule.streamWanted`. */
+        fun continuousHrvStreamWanted(
+            continuousHrv: Boolean,
+            overnightOnly: Boolean,
+            minuteOfDay: Int,
+            startMin: Int,
+            endMin: Int,
+        ): Boolean {
+            if (!continuousHrv) return false
+            if (!overnightOnly) return true
+            return overnightWindowContains(minuteOfDay, startMin, endMin)
         }
     }
 
@@ -1311,11 +1358,15 @@ class WhoopBleClient(
     /** True while the "Continuous HRV capture" preference wants the realtime stream held open even with
      *  no Live screen visible, so the strap banks dense beat-to-beat R-R 24/7 (better overnight
      *  HRV/recovery/sleep). The second input to [wantsRealtime]. Default off; set by
-     *  [setKeepStreamForData]. Mirrors the Swift `keepRealtimeForData`. */
+     *  [setKeepStreamForData]. Mirrors the Swift `keepRealtimeForData`. #927: this is the RAW preference
+     *  intent; the effective want is window-gated through [continuousCaptureWantsNow] when "overnight
+     *  only" is on, re-derived at every arm site. */
     @Volatile private var keepStreamForData = false
     /** Derived want: the realtime stream should be armed while EITHER a screen wants it OR the
      *  continuous-capture preference wants it. The keep-alive re-arms it so it can't lapse, and the
-     *  post-bond branch arms it on connect. Recomputed only inside [reconcileRealtime]. */
+     *  post-bond branch arms it on connect. Recomputed inside [reconcileRealtime] and RE-DERIVED at the
+     *  post-bond arm sites (#927): a cached value can be a keep-alive tick stale, and a reconnect outside
+     *  the overnight window must never arm the stream from it. */
     @Volatile private var wantsRealtime = false
     /** What we last told the strap (armed = TOGGLE_REALTIME_HR 1). Lets [reconcileRealtime] send the
      *  toggle only on the false↔true edge instead of on every input change. */
@@ -2790,7 +2841,12 @@ class WhoopBleClient(
                 // "succeed" with zero body frames. Hardware-validated ordering: CLIENT_HELLO →
                 // subscribe puffin chars → clock → history. (#78 fork)
                 drainCccdQueue(g)
-                if (wantsRealtime) { realtimeArmed = true; send(CommandNumber.TOGGLE_REALTIME_HR, byteArrayOf(1)) }
+                // #927: RE-DERIVE the want at arm time, never the precomputed [wantsRealtime]: that value
+                // can be up to a keep-alive tick (30 s) stale, and a reconnect just OUTSIDE the overnight
+                // window would re-arm the stream from it and stay armed until the next tick.
+                val realtimeWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+                wantsRealtime = realtimeWantNow
+                if (realtimeWantNow) { realtimeArmed = true; send(CommandNumber.TOGGLE_REALTIME_HR, byteArrayOf(1)) }
             } else if (!didBond && connectedFamily == DeviceFamily.WHOOP4) {
                 didBond = true
                 cancelBondWatchdog()          // secure handshake completed — stand the watchdog down (#50)
@@ -2923,6 +2979,12 @@ class WhoopBleClient(
                         log("Get Data Range raw frame (#451 — for offset analysis): $hex")
                         dataRangeNewestUnix(frame)?.let {
                             strapNewestTs = it
+                            // #928: flag an implausibly FUTURE "newest" (strap clock set ahead) right where
+                            // it lands, so a Test Centre export shows WHY auto-continue refused the range.
+                            val wallNowForSkew = System.currentTimeMillis() / 1000L
+                            if (it > wallNowForSkew + AUTO_CONTINUE_FUTURE_SKEW_SECONDS) {
+                                log("Strap newest banked record reads ${(it - wallNowForSkew) / 3600L}h AHEAD of the wall clock (implausible; strap clock set in the future, #928). Auto-continue will not trust this range.")
+                            }
                             // #547 SESSION-RELATIVE gate: publish the strap's banked-record window to the
                             // Backfiller so the historical ingest gate can reject a record dated months
                             // outside THIS strap's own [oldest, newest] (wandering-clock pollution that
@@ -3330,7 +3392,11 @@ class WhoopBleClient(
         // completed) OR the continuous-capture preference wants it — otherwise the stream would only
         // start at the next keep-alive tick (issue #18). Mark it armed so reconcileRealtime() tracks the
         // edge correctly (the strap forgot the toggle across the disconnect; reset() cleared realtimeArmed).
-        if (wantsRealtime) { realtimeArmed = true; send(CommandNumber.TOGGLE_REALTIME_HR, byteArrayOf(1)) }
+        // #927: RE-DERIVE the want at arm time (same reasoning as the 5/MG post-bond arm): a reconnect
+        // outside the overnight window must not arm the stream from a stale precomputed [wantsRealtime].
+        val realtimeWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+        wantsRealtime = realtimeWantNow
+        if (realtimeWantNow) { realtimeArmed = true; send(CommandNumber.TOGGLE_REALTIME_HR, byteArrayOf(1)) }
     }
 
     // ====================================================================================
@@ -3397,6 +3463,20 @@ class WhoopBleClient(
                     resubscribedSinceData = true
                     enableLiveNotifications()
                 }
+                // #927: continuous capture can be overnight-only, which makes the want TIME-dependent;
+                // nothing else re-evaluates it while the app just sits connected, so the keep-alive tick
+                // re-derives it. A window-close tick DISARMS (TOGGLE 0 rides the reconciler's true→false
+                // edge; Android never arms the R10/R11 flood, so the toggle is the whole stop). A
+                // window-open tick re-arms on the false→true edge. Runs for BOTH families: send() routes
+                // the 5/MG toggle with puffin framing. Mirrors the iOS keep-alive re-derivation.
+                val captureWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+                if (wantsRealtime != captureWantNow && keepStreamForData && !screenWantsRealtime) {
+                    log(
+                        if (captureWantNow) "Continuous HRV: overnight window opened; arming the realtime stream (#927)"
+                        else "Continuous HRV: overnight window closed; realtime stream disarmed until tonight (#927)",
+                    )
+                }
+                reconcileRealtime()   // recomputes wantsRealtime from the fresh predicate; toggles only on an edge
                 // WHOOP 4.0 only: re-arm realtime HR so the firmware can't let it lapse (while the Live
                 // screen wants it), and poll battery (~60s) — which also keeps the link warm. A 5/MG
                 // strap rejects WHOOP4-framed commands, so we skip them and rely on re-subscribe + bounce.
@@ -3453,15 +3533,37 @@ class WhoopBleClient(
 
     /** The "Continuous HRV capture" preference flipped: hold the realtime stream open with no Live screen
      *  visible (true) or release it (false), then reconcile. Wired from [com.noop.ui.AppViewModel] and
-     *  gated there on the background-connection preference. Mirrors the Swift `setKeepRealtimeForData`. */
+     *  gated there on the background-connection preference. Mirrors the Swift `setKeepRealtimeForData`.
+     *  #927: also called with the UNCHANGED preference when "overnight only" flips, purely to re-run the
+     *  reconciler with the fresh window gate. */
     fun setKeepStreamForData(keep: Boolean) {
         keepStreamForData = keep
         reconcileRealtime()
     }
 
+    /** #927: the continuous-capture side of the realtime want, window-gated. True while the "Continuous
+     *  HRV capture" preference wants the stream held open AND, when "overnight only" is on, the local
+     *  wall clock sits inside the nightly window (the reused quiet-hours window, 22:00 → 07:00 by
+     *  default). RE-DERIVED at every arm site (reconcile / keep-alive tick / post-bond arm) instead of
+     *  precomputed, so a reconnect outside the window can never arm the stream from a stale value.
+     *  Mirrors the Swift `continuousCaptureWantsNow`. */
+    private fun continuousCaptureWantsNow(): Boolean {
+        if (!keepStreamForData) return false
+        val cal = java.util.Calendar.getInstance()
+        val minuteOfDay = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+        return continuousHrvStreamWanted(
+            continuousHrv = true,
+            overnightOnly = NoopPrefs.continuousHrvOvernight(context),
+            minuteOfDay = minuteOfDay,
+            startMin = NotifPrefs.getInt(context, NotifPrefs.QUIET_START, 22 * 60),
+            endMin = NotifPrefs.getInt(context, NotifPrefs.QUIET_END, 7 * 60),
+        )
+    }
+
     /**
      * Single reconciler for the realtime-HR stream. The stream should be armed while EITHER a screen
-     * wants it ([screenWantsRealtime]) OR the continuous-capture preference wants it ([keepStreamForData]).
+     * wants it ([screenWantsRealtime]) OR the continuous-capture preference wants it ([keepStreamForData],
+     * window-gated by #927 overnight-only via [continuousCaptureWantsNow]).
      * We arm (TOGGLE_REALTIME_HR 1) / disarm (TOGGLE_REALTIME_HR 0) ONLY on the false↔true edge of that
      * derived want — so a Live screen closing while the preference still wants it does NOT disarm, and
      * turning the preference off with no screen open DOES disarm. The toggle only reaches the strap once
@@ -3469,7 +3571,7 @@ class WhoopBleClient(
      * the want is remembered and the post-bond branch arms it. Port of `BLEManager.reconcileRealtime`.
      */
     private fun reconcileRealtime() {
-        val want = screenWantsRealtime || keepStreamForData
+        val want = screenWantsRealtime || continuousCaptureWantsNow()
         wantsRealtime = want   // the keep-alive + post-bond arm-on-connect read this derived value
         if (want == realtimeArmed) return                          // no edge — nothing to send
         if (connectedFamily != DeviceFamily.WHOOP4 && !_state.value.bonded) return   // can't reach the strap yet
@@ -4256,6 +4358,7 @@ class WhoopBleClient(
                     stillConnected = _state.value.connected && _state.value.bonded,
                     strapNewestTs = newest,
                     ourFrontierTs = frontier,
+                    wallNowUnix = System.currentTimeMillis() / 1000L,   // #928: real wall clock, at decision time
                     lastTrimAdvanced = trimAdvanced,
                     consecutiveCount = count,
                     rowsPersistedThisSession = rowsPersisted,

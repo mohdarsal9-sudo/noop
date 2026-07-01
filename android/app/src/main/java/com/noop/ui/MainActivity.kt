@@ -175,6 +175,13 @@ object NoopPrefs {
      *  OFF. Drives [com.noop.ble.WhoopBleClient.setKeepStreamForData] via [AppViewModel]. */
     const val KEY_CONTINUOUS_HRV = "noop.continuousHrv"
 
+    /** "Overnight only" refinement of Continuous HRV capture (#927): when on (with [KEY_CONTINUOUS_HRV]),
+     *  the dense realtime stream is armed only inside the nightly quiet-hours window (22:00 to 07:00 by
+     *  default, wrap-aware, local wall time) instead of 24/7, roughly halving the battery cost. Default
+     *  OFF, so existing Continuous HRV users keep the always-on behaviour with no migration. Read by
+     *  [com.noop.ble.WhoopBleClient] at every arm site (re-derived at arm time, never cached). */
+    const val KEY_CONTINUOUS_HRV_OVERNIGHT = "noop.continuousHrvOvernight"
+
     /** The calendar day (yyyy-MM-dd) on which the morning-journal nudge was last shown, keeps the
      *  Sleep screen's "Good morning" sheet to at most once per day. */
     const val KEY_LAST_JOURNAL_PROMPT = "noop.lastJournalPromptDay"
@@ -220,6 +227,15 @@ object NoopPrefs {
 
     fun setContinuousHrv(context: Context, enabled: Boolean) {
         of(context).edit().putBoolean(KEY_CONTINUOUS_HRV, enabled).apply()
+    }
+
+    /** Whether Continuous HRV capture arms the stream only inside the nightly window (#927). Default
+     *  false = always-on, the pre-#927 behaviour. */
+    fun continuousHrvOvernight(context: Context): Boolean =
+        of(context).getBoolean(KEY_CONTINUOUS_HRV_OVERNIGHT, false)
+
+    fun setContinuousHrvOvernight(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_CONTINUOUS_HRV_OVERNIGHT, enabled).apply()
     }
 
     /** Whether the strap log is mirrored to logcat. Default false (normal users don't log to adb). */

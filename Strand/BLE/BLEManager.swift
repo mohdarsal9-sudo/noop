@@ -307,24 +307,40 @@ struct BackfillContinuation {
     /// How far ahead the strap must be (seconds) before "more backlog remains" is real, not clock noise.
     /// Matches StuckStrapDetector.behindGapSeconds (5 min) so the two agree on "behind".
     static let defaultBehindGapSeconds = 300
+    /// #928: how far past the WALL CLOCK the strap-reported "newest" may sit before it is implausible.
+    /// A strap clock set in the FUTURE (wandering RTC relatch) makes dataRangeNewestUnix read ahead of
+    /// every real frontier, so guard 2a would report backlog forever and burn the whole cap in EMPTY
+    /// offloads on every connect. 48 h absorbs genuine timezone confusion and mild drift; nothing
+    /// legitimate banks records two days ahead of the phone's clock.
+    static let defaultFutureSkewSeconds = 48 * 3600
 
     /// `stillConnected`: link up + command channel usable. `strapNewestTs`: newest record the strap holds
-    /// (GET_DATA_RANGE). `ourFrontierTs`: newest record WE'VE persisted (max HR ts). `lastTrimAdvanced`:
-    /// the just-ended session moved the trim cursor. `consecutiveCount`: auto-continues already done this
-    /// connection. Returns true to immediately re-kick beginBackfill; false to tear down to the floor.
+    /// (GET_DATA_RANGE). `ourFrontierTs`: newest record WE'VE persisted (max HR ts). `wallNowUnix`: the
+    /// REAL wall clock at decision time (#928 future-clock plausibility check; passed in so the predicate
+    /// stays pure). `lastTrimAdvanced`: the just-ended session moved the trim cursor. `consecutiveCount`:
+    /// auto-continues already done this connection. Returns true to immediately re-kick beginBackfill;
+    /// false to tear down to the floor.
     static func shouldAutoContinue(stillConnected: Bool,
                                    strapNewestTs: Int?,
                                    ourFrontierTs: Int?,
+                                   wallNowUnix: Int,
                                    rowsPersistedThisSession: Int = 0,
                                    lastTrimAdvanced: Bool,
                                    consecutiveCount: Int,
                                    maxAutoContinues: Int = defaultMaxAutoContinues,
-                                   behindGapSeconds: Int = defaultBehindGapSeconds) -> Bool {
+                                   behindGapSeconds: Int = defaultBehindGapSeconds,
+                                   futureSkewSeconds: Int = defaultFutureSkewSeconds) -> Bool {
         guard stillConnected else { return false }                 // 1
         guard consecutiveCount < maxAutoContinues else { return false }   // 4 (cap)
         guard lastTrimAdvanced else { return false }               // 3 (don't spin on a frozen cursor)
+        // #928: a strap clock set in the FUTURE makes "newest" read ahead of ANY real frontier, so 2a
+        // would report backlog forever and drive up to the full cap in EMPTY offloads on every connect.
+        // A newest more than futureSkewSeconds past the wall clock is implausible: exclude it (treat the
+        // range as unknown) so only demonstrated progress (2b, real rows) can continue the drain.
+        var plausibleNewest = strapNewestTs
+        if let n = plausibleNewest, n > wallNowUnix + futureSkewSeconds { plausibleNewest = nil }
         // 2a: the strap reports newer data than we hold — reliable WHEN its clock epoch is sane.
-        if let newest = strapNewestTs, let frontier = ourFrontierTs, (newest - frontier) > behindGapSeconds {
+        if let newest = plausibleNewest, let frontier = ourFrontierTs, (newest - frontier) > behindGapSeconds {
             return true
         }
         // 2b (#451): GET_DATA_RANGE's "newest" can read a STALE / wrong-epoch value — a strap that was
@@ -336,6 +352,52 @@ struct BackfillContinuation {
         // real backlog — keep going. Empty / console-only ENDs persist 0 rows, so a genuinely stuck or
         // caught-up strap still won't spin, and the consecutive cap bounds it either way.
         return rowsPersistedThisSession > 0
+    }
+}
+
+/// #927: the "overnight only" schedule for Continuous HRV capture. When the user opts in, the dense
+/// R10/R11 + TOGGLE realtime R-R stream that continuous capture holds armed 24/7 is armed only inside a
+/// nightly window, roughly halving the battery cost (overnight is where the HRV/recovery/sleep value is;
+/// daytime Stress just gets sparser readings, since Stress reads this realtime R-R stream).
+///
+/// The window reuses the app's quiet-hours convention byte-for-byte (the NotificationSettingsStore keys,
+/// the same defaults, and the same wrap-aware membership as SedentaryDetector.windowContains and the
+/// Android NotifPrefs.inQuietHours): minutes since LOCAL midnight, inclusive start, exclusive end, and
+/// the window may cross midnight (22:00 → 07:00 by default). Local wall time keeps it DST-agnostic the
+/// same way quiet hours are: a DST jump moves the wall clock, the window definition never changes.
+///
+/// The MODE is composed from the two persisted booleans so existing users need no migration:
+///   continuous OFF                → stream never held open (unchanged)
+///   continuous ON, overnight OFF  → ALWAYS: armed 24/7 (the pre-#927 behaviour; overnight defaults off)
+///   continuous ON, overnight ON   → OVERNIGHT: armed only inside the window
+///
+/// Pure + value-typed so the predicate is unit-testable (ContinuousHrvScheduleTests). BLEManager
+/// RE-DERIVES it at every arm site (reconcile / keep-alive tick / post-bond arm) instead of caching it,
+/// so a reconnect outside the window can never re-arm the flood from a stale precomputed want.
+struct ContinuousHrvSchedule {
+    /// The reused quiet-hours window keys (written by NotificationSettingsStore; the same reuse idiom as
+    /// InactivityPrefs.NotifK) and their defaults (22:00 / 07:00).
+    static let quietStartKey = "notif.quietStartMinutes"
+    static let quietEndKey = "notif.quietEndMinutes"
+    static let defaultStartMinutes = 22 * 60
+    static let defaultEndMinutes = 7 * 60
+
+    /// Wrap-aware membership: is `minuteOfDay` inside `[startMin, endMin)`, where the window may cross
+    /// midnight? Byte-for-byte the quiet-hours semantics (SedentaryDetector.windowContains / the Android
+    /// NotifPrefs.inQuietHours): start <= end is the plain daytime interval; start > end wraps midnight.
+    static func windowContains(_ minuteOfDay: Int, startMin: Int, endMin: Int) -> Bool {
+        if startMin <= endMin { return minuteOfDay >= startMin && minuteOfDay < endMin }
+        return minuteOfDay >= startMin || minuteOfDay < endMin
+    }
+
+    /// The composed want: should the continuous-capture stream be held open at local wall-clock minute
+    /// `minuteOfDay`? False when the feature is off; true 24/7 in ALWAYS mode (overnightOnly false, the
+    /// pre-#927 behaviour every existing user reads with no migration); window-gated in OVERNIGHT mode.
+    static func streamWanted(continuousHrv: Bool, overnightOnly: Bool,
+                             minuteOfDay: Int, startMin: Int, endMin: Int) -> Bool {
+        guard continuousHrv else { return false }
+        guard overnightOnly else { return true }
+        return windowContains(minuteOfDay, startMin: startMin, endMin: endMin)
     }
 }
 
@@ -433,7 +495,9 @@ public final class BLEManager: NSObject, ObservableObject {
     /// True while the "Continuous HRV capture" preference wants the realtime stream held open even with
     /// no Live screen visible, so the strap banks dense beat-to-beat R-R 24/7 (better overnight
     /// HRV/recovery/sleep). The second input to `wantsRealtime`. Default off; set by
-    /// `setKeepRealtimeForData(_:)`. Mirrors the Android `keepStreamForData`.
+    /// `setKeepRealtimeForData(_:)`. Mirrors the Android `keepStreamForData`. #927: this is the RAW
+    /// preference intent; the effective want is window-gated through `continuousCaptureWantsNow()` when
+    /// "overnight only" is on, re-derived at every arm site.
     private var keepRealtimeForData = false
     /// Derived want: the (heavy) realtime stream should be armed while EITHER a screen wants it OR the
     /// continuous-capture preference wants it. Keep-alive re-arms it; the post-bond branch arms it on
@@ -1563,6 +1627,7 @@ public final class BLEManager: NSObject, ObservableObject {
                 stillConnected: state.connected && state.bonded,
                 strapNewestTs: newest,
                 ourFrontierTs: frontier,
+                wallNowUnix: Int(Date().timeIntervalSince1970),   // #928: real wall clock, at decision time
                 rowsPersistedThisSession: rowsPersisted,
                 lastTrimAdvanced: trimAdvanced,
                 consecutiveCount: count) else {
@@ -1705,22 +1770,43 @@ public final class BLEManager: NSObject, ObservableObject {
 
     /// The "Continuous HRV capture" preference flipped: hold the realtime stream open with no Live screen
     /// visible (true) or release it (false), then reconcile. Driven from the app model. Mirrors the
-    /// Android `setKeepStreamForData`.
+    /// Android `setKeepStreamForData`. #927: also called with the UNCHANGED preference when "overnight
+    /// only" flips, purely to re-run the reconciler with the fresh window gate.
     public func setKeepRealtimeForData(_ keep: Bool) {
         keepRealtimeForData = keep
         reconcileRealtime()
     }
 
+    /// #927: the continuous-capture side of the realtime want, window-gated. True while the "Continuous
+    /// HRV capture" preference wants the stream held open AND, when "overnight only" is on, the local
+    /// wall clock sits inside the nightly window (the reused quiet-hours window, 22:00 → 07:00 by
+    /// default). RE-DERIVED at every arm site (reconcile / keep-alive tick / post-bond arm) instead of
+    /// precomputed, so a reconnect outside the window can never arm the flood from a stale value.
+    /// Mirrors the Android `continuousCaptureWantsNow`.
+    private func continuousCaptureWantsNow(now: Date = Date()) -> Bool {
+        guard keepRealtimeForData else { return false }
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: now)
+        let minuteOfDay = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+        let d = UserDefaults.standard
+        return ContinuousHrvSchedule.streamWanted(
+            continuousHrv: true,
+            overnightOnly: PuffinExperiment.continuousHrvOvernightOnlyEnabled,
+            minuteOfDay: minuteOfDay,
+            startMin: d.object(forKey: ContinuousHrvSchedule.quietStartKey) as? Int ?? ContinuousHrvSchedule.defaultStartMinutes,
+            endMin: d.object(forKey: ContinuousHrvSchedule.quietEndKey) as? Int ?? ContinuousHrvSchedule.defaultEndMinutes)
+    }
+
     /// Single reconciler for the realtime-HR TOGGLE. The stream should be armed while EITHER a screen
     /// wants it (`screenWantsRealtime`) OR the continuous-capture preference wants it
-    /// (`keepRealtimeForData`). We arm (TOGGLE_REALTIME_HR 1) / disarm (TOGGLE_REALTIME_HR 0) ONLY on the
+    /// (`keepRealtimeForData`, window-gated by #927 overnight-only via `continuousCaptureWantsNow()`).
+    /// We arm (TOGGLE_REALTIME_HR 1) / disarm (TOGGLE_REALTIME_HR 0) ONLY on the
     /// false↔true edge of that derived want — so a Live screen closing while the preference still wants
     /// it does NOT disarm, and turning the preference off with no screen open DOES disarm. The toggle only
     /// reaches the strap once it's a WHOOP4 (custom channels open immediately) or a bonded 5/MG (puffin
     /// framing); otherwise the want is remembered and the post-bond branch arms it. Mirrors the Android
     /// `reconcileRealtime`.
     private func reconcileRealtime() {
-        let want = screenWantsRealtime || keepRealtimeForData
+        let want = screenWantsRealtime || continuousCaptureWantsNow()
         wantsRealtime = want   // keep-alive + post-bond arm-on-connect read this derived value
         guard want != realtimeArmed else { return }                      // no edge — nothing to send
         guard selectedModel.deviceFamily == .whoop4 || state.bonded else { return }   // can't reach the strap yet
@@ -1924,6 +2010,23 @@ public final class BLEManager: NSObject, ObservableObject {
             return
         }
         guard !backfilling else { return }            // never poke the strap mid-offload
+        // #927: continuous capture can be overnight-only, which makes the want TIME-dependent; nothing
+        // else re-evaluates it while the app just sits connected, so the keep-alive tick re-derives it.
+        // A window-close tick DISARMS (stop the heavy R10/R11 burst, then the reconciler sends TOGGLE 0
+        // on the true→false edge; the same stop shape as stopRealtime). A window-open tick re-arms on
+        // the false→true edge. Ticks with no transition cost one predicate evaluation. This runs BEFORE
+        // the WHOOP4-only guard below so a 5/MG stream also disarms/re-arms on the window edges (send()
+        // routes the 5/MG toggle and drops the WHOOP4-framed R10/R11 stop for it).
+        let captureWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+        if wantsRealtime != captureWantNow, keepRealtimeForData, !screenWantsRealtime {
+            if captureWantNow {
+                log("Continuous HRV: overnight window opened; arming the realtime stream (#927)")
+            } else {
+                send(.sendR10R11Realtime, payload: [0x00])   // stop the heavy burst, like stopRealtime
+                log("Continuous HRV: overnight window closed; realtime stream disarmed until tonight (#927)")
+            }
+        }
+        reconcileRealtime()   // recomputes wantsRealtime from the fresh predicate; toggles only on an edge
         // The command pings below are WHOOP4-framed; a 5/MG link drops them at the send() guard, so
         // skip them for 5/MG (it keeps the experimental strap log clean — re-subscribe + the 120s
         // bounce above are what keep a 5/MG link healthy).
@@ -2846,7 +2949,12 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
             // Arm realtime HR with puffin framing — the verified step that makes a bonded 5/MG strap start
             // streaming (issue #17). Once per connection; keep-alive skips 5/MG, so this is the trigger.
             // (Opening Live later also arms it via startRealtime(), now that send() routes the 5/MG toggle.)
-            if wantsRealtime && !whoop5RealtimeArmed {
+            // #927: RE-DERIVE the want at arm time, never the precomputed `wantsRealtime`: that value can
+            // be up to a keep-alive tick (30 s) stale, and a reconnect just OUTSIDE the overnight window
+            // would re-arm the flood from it and stay armed until the next tick.
+            let realtimeWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+            wantsRealtime = realtimeWantNow
+            if realtimeWantNow && !whoop5RealtimeArmed {
                 whoop5RealtimeArmed = true
                 realtimeArmed = true   // keep reconcileRealtime()'s edge tracking in sync with the arm
                 log("WHOOP 5/MG: arming realtime HR (puffin TOGGLE_REALTIME_HR)")
@@ -2940,7 +3048,12 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
         startBackfillTimer()   // re-offload the type-47 store every backfillIntervalSeconds
         startKeepAlive()       // always-ping: re-arm realtime, poll battery, watchdog the link
         enableLiveNotifications(reason: "post-bond")   // includes 0x2A37 standard HR — the fallback path
-        if wantsRealtime {
+        // #927: RE-DERIVE the want at arm time (same reasoning as the 5/MG branch above): a reconnect
+        // outside the overnight window must not arm the flood from a stale precomputed `wantsRealtime`
+        // (up to a keep-alive tick stale); the keep-alive would then hold it armed for another 30 s.
+        let realtimeWantNow = screenWantsRealtime || continuousCaptureWantsNow()
+        wantsRealtime = realtimeWantNow
+        if realtimeWantNow {
             if standardHRFallback {
                 // #80: this radio repeatedly dropped the link the instant we armed the R10/R11 burst.
                 // Skip the heavy stream entirely; live HR rides the already-subscribed low-bandwidth
@@ -3082,6 +3195,12 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
                     log("Get Data Range raw frame (#451 — for offset analysis): \(hex)")
                     if let newest = BLEManager.dataRangeNewestUnix(from: frame) {
                         strapNewestTs = newest                    // feeds the liveness watchdog
+                        // #928: flag an implausibly FUTURE "newest" (strap clock set ahead) right where it
+                        // lands, so a Test Centre export shows WHY auto-continue refused to trust the range.
+                        let wallNowForSkew = Int(Date().timeIntervalSince1970)
+                        if newest > wallNowForSkew + BackfillContinuation.defaultFutureSkewSeconds {
+                            log("Strap newest banked record reads \((newest - wallNowForSkew) / 3600)h AHEAD of the wall clock (implausible; strap clock set in the future, #928). Auto-continue will not trust this range.")
+                        }
                         // #547 SESSION-RELATIVE gate: publish the strap's banked-record window to the
                         // Backfiller so the historical ingest gate can reject a record dated months outside
                         // THIS strap's own [oldest, newest] (wandering-clock pollution that clears the

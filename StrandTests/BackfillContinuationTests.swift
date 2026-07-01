@@ -7,7 +7,15 @@ import XCTest
 /// strap stays connected. `BackfillContinuation.shouldAutoContinue` decides whether a session that ended
 /// on the 60s IDLE cap (not a true HISTORY_COMPLETE) should immediately re-kick instead of tearing down
 /// to the floor. Pure value type → no CoreBluetooth seam needed (mirrors MarginalRadioDetectorTests).
+///
+/// #928 pinned here too: the predicate takes the REAL wall clock (`wallNowUnix`) so a strap clock set in
+/// the FUTURE (a "newest" more than 48 h ahead of the wall) is excluded from the backlog test instead of
+/// reading as endless backlog. Fixtures pass an explicit wall-now consistent with their timestamps.
 final class BackfillContinuationTests: XCTestCase {
+
+    /// The fixtures' "now": all pre-#928 timestamps sit at or before this instant, so the plausibility
+    /// check is inert for them and the original #364/#451/#25 semantics stay pinned unchanged.
+    private let wallNow = 1_800_000_000
 
     /// The happy path: still connected, the strap is well ahead of our frontier, the trim advanced this
     /// session, and we're under the cap ⇒ continue immediately.
@@ -16,6 +24,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,            // strap newest
             ourFrontierTs: 1_800_000_000 - 86_400,   // our frontier a full day behind
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
     }
@@ -26,6 +35,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: false,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 86_400,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
     }
@@ -37,6 +47,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 120,      // only 2 min behind, under the 5-min gap
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
     }
@@ -47,6 +58,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 300,      // exactly the 300s gap
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0,
             behindGapSeconds: 300))
@@ -55,6 +67,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 301,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0,
             behindGapSeconds: 300))
@@ -67,6 +80,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 86_400,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: false,                 // frozen cursor
             consecutiveCount: 0))
     }
@@ -80,6 +94,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 86_400,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: cap - 1))
         // At the cap, stop.
@@ -87,6 +102,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 86_400,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: cap))
         // Above the cap, still stop.
@@ -94,6 +110,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 86_400,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: cap + 5))
     }
@@ -105,12 +122,14 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: nil,                       // no GET_DATA_RANGE answer
             ourFrontierTs: 1_700_000_000,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
         XCTAssertFalse(BackfillContinuation.shouldAutoContinue(
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: nil,                       // nothing persisted yet
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
     }
@@ -124,6 +143,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_700_000_000,            // stale 2023/24-epoch range answer…
             ourFrontierTs: 1_800_000_000,            // …reads as BEHIND our real 2026 frontier
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 240,           // but real rows came in this pass
             lastTrimAdvanced: true,
             consecutiveCount: 0))
@@ -136,6 +156,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_700_000_000,            // stale/behind range answer
             ourFrontierTs: 1_800_000_000,
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 0,             // nothing actually persisted ⇒ caught up / stuck
             lastTrimAdvanced: true,
             consecutiveCount: 0))
@@ -148,6 +169,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: nil,                       // no GET_DATA_RANGE answer
             ourFrontierTs: 1_800_000_000,
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 180,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
@@ -161,6 +183,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_700_000_000,
             ourFrontierTs: 1_800_000_000,
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 240,
             lastTrimAdvanced: false,                  // frozen cursor
             consecutiveCount: 0))
@@ -169,6 +192,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_700_000_000,
             ourFrontierTs: 1_800_000_000,
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 240,
             lastTrimAdvanced: true,
             consecutiveCount: BackfillContinuation.defaultMaxAutoContinues))
@@ -177,6 +201,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: false,
             strapNewestTs: 1_700_000_000,
             ourFrontierTs: 1_800_000_000,
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 240,
             lastTrimAdvanced: true,
             consecutiveCount: 0))
@@ -193,6 +218,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: strapNewest,
             ourFrontierTs: frontier,
+            wallNowUnix: wallNow,
             lastTrimAdvanced: true,
             consecutiveCount: count) {
             // Each pass drains ~a day of the oldest backlog and counts as one auto-continue.
@@ -219,6 +245,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 6 * 3600,   // still 6 h behind after this slice
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 90,              // a small slice, but real rows landed
             lastTrimAdvanced: true,
             consecutiveCount: 0))
@@ -232,6 +259,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 60,         // within the 5-min gap ⇒ caught up
+            wallNowUnix: wallNow,
             // A genuinely caught-up strap hands over NO new rows on the final END (empty / console-only),
             // so the #451 guard-2b "keep draining if still persisting real backlog" does not fire and the
             // predicate returns false. (12 rows + advanced trim would correctly KEEP going per #451.)
@@ -250,6 +278,7 @@ final class BackfillContinuationTests: XCTestCase {
             stillConnected: true,
             strapNewestTs: 1_800_000_000,
             ourFrontierTs: 1_800_000_000 - 7 * 86_400, // never catches up — frontier stays far behind
+            wallNowUnix: wallNow,
             rowsPersistedThisSession: 30,              // every tiny slice banks a few rows
             lastTrimAdvanced: true,
             consecutiveCount: count) {
@@ -259,5 +288,71 @@ final class BackfillContinuationTests: XCTestCase {
                                      "HISTORY_COMPLETE slices must be capped, not spin forever")
         }
         XCTAssertEqual(count, BackfillContinuation.defaultMaxAutoContinues)
+    }
+
+    // MARK: #928: strap clock set in the FUTURE
+
+    /// #928 THE BUG: a strap clock set ahead makes the range "newest" future-dated, which reads as
+    /// permanently AHEAD of every real frontier, so guard 2a fired on every connect and burned up to the
+    /// full cap in EMPTY offloads. An implausibly future newest (more than 48 h past the wall clock) must
+    /// be EXCLUDED from the backlog test: with no real rows this session there is no evidence of backlog,
+    /// so the very first empty session stops the drain.
+    func testFutureClockNewestExcludedStopsEmptySpin() {
+        XCTAssertFalse(BackfillContinuation.shouldAutoContinue(
+            stillConnected: true,
+            strapNewestTs: wallNow + 30 * 86_400,     // strap clock a month ahead of the wall
+            ourFrontierTs: wallNow - 600,             // we're genuinely caught up to 10 min ago
+            wallNowUnix: wallNow,
+            rowsPersistedThisSession: 0,              // the offloads come back empty
+            lastTrimAdvanced: true,
+            consecutiveCount: 0))
+    }
+
+    /// #928 + #451 symmetry: a future-dated range answer is unreliable, but REAL rows persisting this
+    /// session are direct evidence of backlog, so the 2b evidence path still continues the drain (the
+    /// exclusion only removes the untrustworthy 2a shortcut, it never blocks demonstrated progress).
+    func testFutureClockNewestStillContinuesOnRealRows() {
+        XCTAssertTrue(BackfillContinuation.shouldAutoContinue(
+            stillConnected: true,
+            strapNewestTs: wallNow + 30 * 86_400,     // same future-dated answer
+            ourFrontierTs: wallNow - 600,
+            wallNowUnix: wallNow,
+            rowsPersistedThisSession: 240,            // but this pass banked real records
+            lastTrimAdvanced: true,
+            consecutiveCount: 0))
+    }
+
+    /// #928 boundary: exactly 48 h ahead is still plausible (the guard is strictly-greater, absorbing
+    /// timezone confusion and mild drift); one second past it is implausible and excluded.
+    func testFutureSkewBoundary() {
+        // Exactly at the skew cap: still trusted, and far ahead of the frontier ⇒ continue.
+        XCTAssertTrue(BackfillContinuation.shouldAutoContinue(
+            stillConnected: true,
+            strapNewestTs: wallNow + 48 * 3600,
+            ourFrontierTs: wallNow - 86_400,
+            wallNowUnix: wallNow,
+            lastTrimAdvanced: true,
+            consecutiveCount: 0))
+        // One second past the cap: excluded, and an empty session must not continue.
+        XCTAssertFalse(BackfillContinuation.shouldAutoContinue(
+            stillConnected: true,
+            strapNewestTs: wallNow + 48 * 3600 + 1,
+            ourFrontierTs: wallNow - 86_400,
+            wallNowUnix: wallNow,
+            rowsPersistedThisSession: 0,
+            lastTrimAdvanced: true,
+            consecutiveCount: 0))
+    }
+
+    /// #928: mild clock skew (an hour ahead, i.e. a timezone hiccup or drift) stays inside the 48 h
+    /// tolerance, so a genuinely-behind frontier still auto-continues exactly as before the clamp.
+    func testMildFutureSkewStillTrusted() {
+        XCTAssertTrue(BackfillContinuation.shouldAutoContinue(
+            stillConnected: true,
+            strapNewestTs: wallNow + 3600,            // an hour ahead: plausible skew, not a broken clock
+            ourFrontierTs: wallNow - 86_400,          // a real day of backlog
+            wallNowUnix: wallNow,
+            lastTrimAdvanced: true,
+            consecutiveCount: 0))
     }
 }

@@ -1450,6 +1450,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * Flip "Overnight only" for Continuous HRV capture (#927, driven by Settings → Strap). Persists the
+     * preference and re-pushes the UNCHANGED keep-stream want, purely so the BLE reconciler re-derives
+     * the window gate immediately: flipping it on outside the window disarms the stream now, flipping it
+     * off re-arms it. The BLE client re-reads this preference at every arm site, so no stale value can
+     * keep the stream armed outside the window between reconciles.
+     */
+    fun setContinuousHrvOvernight(enabled: Boolean) {
+        NoopPrefs.setContinuousHrvOvernight(appContext, enabled)
+        ble.setKeepStreamForData(continuousHrvEffective())
+    }
+
+    /**
      * Flip "Debug logging" (driven by Settings → Strap). Persists the preference and pushes it to the
      * live BLE client so it takes effect immediately. Default OFF: the strap log stays in the in-app
      * ring buffer (and the "Share strap log" export) but is not mirrored to logcat unless the user opts

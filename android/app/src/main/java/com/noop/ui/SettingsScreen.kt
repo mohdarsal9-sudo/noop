@@ -366,6 +366,10 @@ fun SettingsScreen(vm: AppViewModel, onOpenTestCentre: () -> Unit = {}) {
     // cost of more battery. Default OFF; only does anything with background connection on. Local mirror.
     var continuousHrv by remember { mutableStateOf(NoopPrefs.continuousHrv(context)) }
 
+    // "Overnight only" (#927): arm the continuous stream only inside the nightly quiet-hours window
+    // instead of 24/7. Default OFF so existing users keep the always-on behaviour. Local mirror.
+    var continuousHrvOvernight by remember { mutableStateOf(NoopPrefs.continuousHrvOvernight(context)) }
+
     // "Debug logging" — mirror the strap log to logcat (adb). Default OFF so normal users don't.
     var debugLogging by remember { mutableStateOf(NoopPrefs.debugLogging(context)) }
 
@@ -1079,6 +1083,44 @@ fun SettingsScreen(vm: AppViewModel, onOpenTestCentre: () -> Unit = {}) {
                             uncheckedBorderColor = Palette.hairline,
                         ),
                     )
+                }
+
+                // Overnight only (#927): window-gate the continuous stream to the nightly quiet-hours
+                // window. Shown only while Continuous HRV capture is on; default OFF so existing users
+                // keep the always-on behaviour with no migration.
+                if (continuousHrv) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Overnight only",
+                                style = NoopType.subhead,
+                                color = Palette.textPrimary,
+                            )
+                            Text(
+                                "Runs the stream only during your quiet hours window (22:00 to 07:00 by default), roughly halving the battery cost. Daytime Stress readings will be sparser, since Stress reads this live stream.",
+                                style = NoopType.footnote,
+                                color = Palette.textTertiary,
+                            )
+                        }
+                        Switch(
+                            checked = continuousHrvOvernight,
+                            onCheckedChange = {
+                                continuousHrvOvernight = it
+                                vm.setContinuousHrvOvernight(it)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Palette.surfaceBase,
+                                checkedTrackColor = Palette.accent,
+                                uncheckedThumbColor = Palette.textSecondary,
+                                uncheckedTrackColor = Palette.surfaceInset,
+                                uncheckedBorderColor = Palette.hairline,
+                            ),
+                        )
+                    }
                 }
 
                 // Diagnostics: "Debug logging" mirrors the strap log to logcat (adb). Default OFF — a

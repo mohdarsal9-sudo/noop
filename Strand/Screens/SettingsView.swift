@@ -46,6 +46,12 @@ struct SettingsView: View {
     /// See [PuffinExperiment.keepRealtimeForDataKey].
     @AppStorage(PuffinExperiment.keepRealtimeForDataKey) private var continuousHrvEnabled = false
 
+    /// #927 "Overnight only" refinement of Continuous HRV capture (off by default): arm the stream only
+    /// inside the nightly quiet-hours window instead of 24/7. Composed with the base toggle (base on +
+    /// this off = ALWAYS, the pre-#927 behaviour) so existing users see no change and need no migration.
+    /// See [PuffinExperiment.continuousHrvOvernightOnlyKey].
+    @AppStorage(PuffinExperiment.continuousHrvOvernightOnlyKey) private var continuousHrvOvernightOnly = false
+
     /// Opt-in "Experimental sleep staging (V2)" (off by default). When on, detected nights are re-staged with
     /// `SleepStagerV2` (the transparent cardiorespiratory recipe) instead of the default V1 stager. Read at
     /// the staging call site in `Repository`. See [PuffinExperiment.experimentalSleepV2Key].
@@ -773,6 +779,26 @@ struct SettingsView: View {
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // #927 Overnight only: window-gate the continuous stream to the nightly quiet-hours
+                // window. Re-pushing the UNCHANGED base preference just re-runs the BLE reconciler,
+                // which re-derives the window gate and arms/disarms on the edge immediately.
+                if continuousHrvEnabled {
+                    Toggle(isOn: $continuousHrvOvernightOnly) {
+                        Text("Overnight only")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                    .toggleStyle(.switch)
+                    .tint(StrandPalette.accent)
+                    .onChangeCompat(of: continuousHrvOvernightOnly) { _ in
+                        model.ble.setKeepRealtimeForData(PuffinExperiment.keepRealtimeForDataEnabled)
+                    }
+                    Text("Runs the stream only during your quiet hours window (22:00 to 07:00 by default), roughly halving the battery cost. Daytime Stress readings will be sparser, since Stress reads this live stream.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 // MARK: Strap name — rename the WHOOP 4.0's BLE advertising name (Harvard command set).
                 if live.connected && selectedWhoopModelRaw == WhoopModel.whoop4.rawValue {
