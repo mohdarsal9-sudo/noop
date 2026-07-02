@@ -229,13 +229,21 @@ class WhoopRepository(private val dao: WhoopDao) {
      *  bed AND reverting the edit. Every other field (efficiency, restingHr, avgHrv, stagesJSON) is
      *  preserved via [SleepSession.copy]. */
     suspend fun updateSleepSessionTimes(session: SleepSession, newStartTs: Long, newEndTs: Long) {
+        // #940 belt-and-braces: never persist a future-ending or inverted corrected window, whatever
+        // the UI sent. The Sleep screen's own guards (cross-midnight bed auto-correct + the disjoint
+        // confirm) should make this unreachable; it is the last line so no client misbehaviour can
+        // write a phantom night the display merge cannot render. Twin of Swift
+        // Repository.editSleepTimes' SleepEditGuard.clampedEditWindow gate.
+        val (safeStartTs, safeEndTs) = com.noop.analytics.SleepEditGuard.clampedEditWindow(
+            newStartTs, newEndTs, System.currentTimeMillis() / 1000L,
+        ) ?: return
         val reclipped = com.noop.analytics.SleepWindowReclip.reclip(
-            session.stagesJSON, session.effectiveStartTs, session.endTs, newStartTs, newEndTs,
+            session.stagesJSON, session.effectiveStartTs, session.endTs, safeStartTs, safeEndTs,
         )
         dao.upsertSleepSessions(
             listOf(session.copy(
-                startTsAdjusted = newStartTs,
-                endTs = newEndTs,
+                startTsAdjusted = safeStartTs,
+                endTs = safeEndTs,
                 userEdited = true,
                 stagesJSON = reclipped ?: session.stagesJSON,
             )),
@@ -315,17 +323,22 @@ class WhoopRepository(private val dao: WhoopDao) {
      *  NEVER folded into the night's main sleep (which would mislabel the awake daytime gap as light
      *  sleep). Purely additive , the DAO's IGNORE-on-conflict makes a same-onset add a no-op. */
     suspend fun addManualNap(strapDeviceId: String, startTs: Long, endTs: Long) {
-        if (endTs <= startTs) return
+        // #940 belt-and-braces (same rule as updateSleepSessionTimes): a manually-added session
+        // can't end in the future or invert; a future nap would otherwise own the tab's newest day
+        // as an all-awake phantom exactly like the bad edit did. The clamped end is used verbatim.
+        val (safeStartTs, safeEndTs) = com.noop.analytics.SleepEditGuard.clampedEditWindow(
+            startTs, endTs, System.currentTimeMillis() / 1000L,
+        ) ?: return
         val computedId = computedDeviceId(strapDeviceId)
-        val stagesJSON = com.noop.analytics.SleepStageHealer.restageFromRaw(this, strapDeviceId, startTs, endTs)
+        val stagesJSON = com.noop.analytics.SleepStageHealer.restageFromRaw(this, strapDeviceId, safeStartTs, safeEndTs)
             ?: com.noop.analytics.AnalyticsEngine.encodeStages(
-                listOf(com.noop.analytics.StageSegment(start = startTs, end = endTs, stage = "wake")),
+                listOf(com.noop.analytics.StageSegment(start = safeStartTs, end = safeEndTs, stage = "wake")),
             )
         dao.insertSleepSession(
             SleepSession(
                 deviceId = computedId,
-                startTs = startTs,
-                endTs = endTs,
+                startTs = safeStartTs,
+                endTs = safeEndTs,
                 efficiency = sleepEfficiency(stagesJSON),
                 stagesJSON = stagesJSON,
                 userEdited = true,

@@ -76,6 +76,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noop.analytics.AnalyticsEngine
 import com.noop.analytics.SleepDebt
 import com.noop.analytics.SleepDebtLedger
+import com.noop.analytics.SleepEditGuard
 import com.noop.analytics.SleepStageTotals
 import com.noop.data.DailyMetric
 import com.noop.data.SleepSession
@@ -312,6 +313,15 @@ fun SleepScreen(
     }
     val display = remember(model, night) { heroDisplay(model, night) }
 
+    // #940: ONE stage-less SELECTED day (typically the newest, after an impossible hand-edit staged
+    // it all-awake) must not hide the whole tab's history. The tiles / ledger / trends are
+    // full-history and independent of the browsed night (matching iOS, where browsing only
+    // re-points the hero), so when the selected day's model fails to build, anchor them to the
+    // newest stage-bearing day instead of vanishing. The HERO stays on `model`/`display` (an
+    // honest no-stage-data fallback for the bad day, edit pencil reachable). Null only when NO day
+    // has stage data: the true first-run empty state.
+    val tilesModel = remember(model, days, imported) { model ?: fallbackSleepModel(days, imported) }
+
     // Jump straight to a night by its (local) wake-day — the center date block opens a picker.
     // navDays is newest-day-first, so the day's index IS its offset (0 = last night). (#160, #59)
     val onPickNightDate: (LocalDate) -> Unit = { targetDate ->
@@ -321,7 +331,10 @@ fun SleepScreen(
     }
 
     LazyScreenScaffold(title = "Sleep", subtitle = "Last night, read in two seconds.") {
-        if (model == null && night == null) {
+        // #940: the empty state is ONLY for a truly empty history. A newest day that merely fails
+        // to merge (the phantom-edit shape) keeps the hero (night != null) and the full-history
+        // tiles (tilesModel != null), so intact older nights are never hidden behind "no nights".
+        if (tilesModel == null && night == null) {
             // While the strap is mid-offload, say so — "No nights" reads as final otherwise (#77).
             item {
                 if (backfillNote != null) SyncingHistoryNote(chunks = backfillNote!!)
@@ -331,9 +344,11 @@ fun SleepScreen(
             // REST HERO — a scenic indigo backdrop with the night's sleep-performance score as a
             // layered BevelGauge (Rest gradient), else a big rounded hours-slept headline. Mirrors the
             // macOS SleepView.restHero. Presentation-only — reads the existing model figures. (Bevel)
+            // The score is a full-history latest (series.last), so it reads from `tilesModel` when
+            // the selected day's model failed to build (#940): real data over a zeroed gauge.
             item {
                 RestHero(
-                    score = model?.performance?.latest,
+                    score = (model ?: tilesModel)?.performance?.latest,
                     asleepMin = model?.stages?.asleep,
                     source = restHeroSource(imported, days),
                 )
@@ -367,23 +382,32 @@ fun SleepScreen(
                 onNavigate = { nightOffset = it },
                 session = night?.session,
                 onUpdateTimes = { s, start, end ->
-                    // Optimistic: rewrite this session in `sleeps` so every metric recomputes
-                    // immediately, then persist DURABLY off the UI thread. Mirror the persist path —
-                    // keep the IMMUTABLE detected startTs and store the corrected onset in
-                    // startTsAdjusted with userEdited=true, so display (via effectiveStartTs) tracks the
-                    // edit while the (deviceId,startTs) key never moves. (PR #260 + #395)
-                    // Reclip stagesJSON in-memory so the hypnogram strip updates instantly (same
-                    // reclip logic runs again in WhoopRepository for the durable DB copy).
-                    sleeps = sleeps.map {
-                        if (it.deviceId == s.deviceId && it.startTs == s.startTs) {
-                            val reclipped = SleepWindowReclip.reclip(it.stagesJSON, it.effectiveStartTs, it.endTs, start, end)
-                            it.copy(startTsAdjusted = start, endTs = end, userEdited = true,
-                                    stagesJSON = reclipped ?: it.stagesJSON)
-                        } else {
-                            it
+                    // #940 belt-and-braces: never apply (optimistically OR durably) a future-ending
+                    // or inverted window, whatever the pickers produced. The editor's own guards
+                    // (cross-midnight auto-correct + the disjoint confirm) should make this
+                    // unreachable; sharing ONE safe window here keeps the in-memory copy and the DB
+                    // write in lockstep. Same rule as WhoopRepository.updateSleepSessionTimes.
+                    val safe = SleepEditGuard.clampedEditWindow(start, end, System.currentTimeMillis() / 1000L)
+                    if (safe != null) {
+                        val (safeStart, safeEnd) = safe
+                        // Optimistic: rewrite this session in `sleeps` so every metric recomputes
+                        // immediately, then persist DURABLY off the UI thread. Mirror the persist path —
+                        // keep the IMMUTABLE detected startTs and store the corrected onset in
+                        // startTsAdjusted with userEdited=true, so display (via effectiveStartTs) tracks the
+                        // edit while the (deviceId,startTs) key never moves. (PR #260 + #395)
+                        // Reclip stagesJSON in-memory so the hypnogram strip updates instantly (same
+                        // reclip logic runs again in WhoopRepository for the durable DB copy).
+                        sleeps = sleeps.map {
+                            if (it.deviceId == s.deviceId && it.startTs == s.startTs) {
+                                val reclipped = SleepWindowReclip.reclip(it.stagesJSON, it.effectiveStartTs, it.endTs, safeStart, safeEnd)
+                                it.copy(startTsAdjusted = safeStart, endTs = safeEnd, userEdited = true,
+                                        stagesJSON = reclipped ?: it.stagesJSON)
+                            } else {
+                                it
+                            }
                         }
+                        scope.launch { vm.updateSleepSessionTimes(s, safeStart, safeEnd) }
                     }
-                    scope.launch { vm.updateSleepSessionTimes(s, start, end) }
                 },
                 onDeleteSession = { s ->
                     // Delete = the edit path minus the re-insert: drop this session from `sleeps`
@@ -419,10 +443,12 @@ fun SleepScreen(
                 motionEpochs = night?.groupMotion ?: emptyList(),
             )
             }
-            if (model != null) {
+            // Tiles / ledger / trends read the FULL-history model (#940): they stay up when only the
+            // selected day's model failed to build, exactly as iOS keeps them while browsing.
+            if (tilesModel != null) {
                 // Bind a non-null local so the smart-cast carries cleanly into each item {} lambda
                 // (a nullable val doesn't smart-cast across a lambda boundary). Same model, same order.
-                val m = model
+                val m = tilesModel
                 item { Spacer(Modifier.height(Metrics.selectorTopUp)) }
                 item { MetricGrid(m, onMetricClick = { detailMetricKey = it }) }
                 item { Spacer(Modifier.height(Metrics.selectorTopUp)) }
@@ -1283,6 +1309,10 @@ private fun NightNavHeader(
     var editingBed by remember { mutableStateOf(false) }
     var editingWake by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    // #940 guard 2: a corrected (start, end) window that no longer touches the night's recorded
+    // coverage parks here awaiting an explicit confirm; committing it silently fabricated an
+    // all-awake phantom night that hid the tab's history. null = nothing pending.
+    var pendingDisjointTimes by remember { mutableStateOf<Pair<Long, Long>?>(null) }
     // Manual nap add (#508): pick a start time, then an end time; both anchored to THIS night's wake day
     // so the new nap lands on the right day. napStartTs holds the chosen start between the two pickers.
     var addingNapStart by remember { mutableStateOf(false) }
@@ -1341,6 +1371,19 @@ private fun NightNavHeader(
         )
     }
 
+    // Commit funnel for BOTH time edits (#940): a corrected window that abandons the night's
+    // recorded coverage (detected onset ... current wake) has no data to stage from, so it parks
+    // behind an explicit confirm instead of silently creating an all-awake phantom night. An
+    // in-coverage window commits straight through, exactly as before.
+    fun commitTimes(s: SleepSession, newStart: Long, newEnd: Long) {
+        val coverageStart = minOf(s.startTs, s.effectiveStartTs)
+        if (SleepEditGuard.isDisjoint(newStart, newEnd, coverageStart, s.endTs)) {
+            pendingDisjointTimes = newStart to newEnd
+        } else {
+            onUpdateTimes(s, newStart, newEnd)
+        }
+    }
+
     // Bed-time picker — keeps the original calendar date, only moves the hour/minute. Pre-fills from
     // the EFFECTIVE onset so re-editing an already-corrected night starts from the edited bedtime, and
     // the new onset is passed through onUpdateTimes (which stores it in startTsAdjusted). (PR #395)
@@ -1354,7 +1397,18 @@ private fun NightNavHeader(
                         timeInMillis = session.effectiveStartTs * 1000L
                         set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, m)
                     }
-                    onUpdateTimes(session, cal.timeInMillis / 1000L, session.endTs)
+                    // #940 guard 1: keeping the original DATE means rolling the time back across
+                    // midnight (01:06 -> 23:00) lands the bed AFTER the wake / in the future: the
+                    // reporter's "phantom night". A roll past the wake or past the clock almost
+                    // always means the previous evening; snap the date back a day. Pure rule +
+                    // tests: SleepEditGuard (Swift twin in StrandAnalytics).
+                    val bedTs = SleepEditGuard.autoCorrectedBed(
+                        previousBedTs = session.effectiveStartTs,
+                        candidateBedTs = cal.timeInMillis / 1000L,
+                        originalWakeTs = session.endTs,
+                        nowTs = System.currentTimeMillis() / 1000L,
+                    )
+                    commitTimes(session, bedTs, session.endTs)
                     editingBed = false
                 },
                 startCal.get(Calendar.HOUR_OF_DAY),
@@ -1391,8 +1445,9 @@ private fun NightNavHeader(
                         if (timeInMillis / 1000L <= bedTs) add(Calendar.DAY_OF_MONTH, 1)
                     }
                     // Pass the EFFECTIVE onset so a wake-only edit preserves a previously-edited
-                    // bedtime (startTsAdjusted) rather than resetting it to the detected startTs. (PR #395)
-                    onUpdateTimes(session, bedTs, cal.timeInMillis / 1000L)
+                    // bedtime (startTsAdjusted) rather than resetting it to the detected startTs.
+                    // (PR #395; routed through the #940 disjoint-confirm funnel like the bed edit.)
+                    commitTimes(session, bedTs, cal.timeInMillis / 1000L)
                     editingWake = false
                 },
                 endCal.get(Calendar.HOUR_OF_DAY),
@@ -1442,7 +1497,16 @@ private fun NightNavHeader(
                         set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, m)
                         set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                     }
-                    napStartTs = cal.timeInMillis / 1000L
+                    // #940: a nap being logged already happened. The anchor day is the night's wake
+                    // day (usually today), so a picked time later than the clock means the most
+                    // recent PAST occurrence: snap back a day (no wake rule here; a nap after the
+                    // night's wake is normal).
+                    napStartTs = SleepEditGuard.autoCorrectedBed(
+                        previousBedTs = anchorTs,
+                        candidateBedTs = cal.timeInMillis / 1000L,
+                        originalWakeTs = null,
+                        nowTs = System.currentTimeMillis() / 1000L,
+                    )
                     addingNapStart = false
                     addingNapEnd = true
                 },
@@ -1484,6 +1548,36 @@ private fun NightNavHeader(
             dialog.show()
             onDispose { runCatching { dialog.dismiss() } }
         }
+    }
+
+    // #940 guard 2's consent step: the corrected window no longer touches the night's recorded
+    // coverage, so there is nothing to stage it from. Same wording as the iOS SleepTimeEditor alert.
+    val pendingTimes = pendingDisjointTimes
+    if (pendingTimes != null && session != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDisjointTimes = null },
+            containerColor = Palette.surfaceRaised,
+            titleContentColor = Palette.textPrimary,
+            textContentColor = Palette.textSecondary,
+            title = { Text("Move this sleep?", style = NoopType.headline) },
+            text = {
+                Text(
+                    "This moves the night to a time with no recorded data. Stages can't be derived there, so it may show as empty until data covers it.",
+                    style = NoopType.subhead,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onUpdateTimes(session, pendingTimes.first, pendingTimes.second)
+                    pendingDisjointTimes = null
+                }) { Text("Move anyway", style = NoopType.subhead, color = Palette.statusWarning) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDisjointTimes = null }) {
+                    Text("Cancel", style = NoopType.subhead, color = Palette.textSecondary)
+                }
+            },
+        )
     }
 
     val nightLabel = when (offset) {
@@ -2657,6 +2751,24 @@ internal fun buildSleepModel(
         realSegments = realSegments,
         sleepDebtLedger = sleepDebtLedger,
     )
+}
+
+/**
+ * #940 no-blank fallback: one impossible/stage-less SELECTED day (typically the newest, after a bad
+ * hand-edit staged it all-awake) must not hide the whole tab's full-history surfaces. Re-anchor the
+ * model to the newest day that HAS stage minutes; the tiles / ledger / trends it feeds are
+ * full-history by construction, so this only changes which day supplies the hero-independent
+ * anchor. Null only when NO day carries stage data (the true first-run empty state). Internal so
+ * SleepPhantomNightFallbackTest can pin the rule. Mirrors iOS buildModel's stage-less stub fallback.
+ */
+internal fun fallbackSleepModel(
+    days: List<DailyMetric>,
+    imported: ImportedSleepSeries = ImportedSleepSeries(),
+): SleepModel? {
+    val anchorDay = days.lastOrNull {
+        (it.deepMin ?: 0.0) + (it.remMin ?: 0.0) + (it.lightMin ?: 0.0) > 0.0
+    }?.day ?: return null
+    return buildSleepModel(days, null, imported, selectedDay = anchorDay)
 }
 
 /** Build a metric from a per-day transform, keeping only finite values. */

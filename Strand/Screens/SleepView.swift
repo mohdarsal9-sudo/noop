@@ -180,7 +180,14 @@ struct SleepView: View {
                 model = buildModel()
             }
             .sheet(item: $wakeEdit) { edit in
+                // The night's RECORDED coverage for the #940 guards: from the immutable detected
+                // onset (where the strap actually saw the night; an earlier hand-set onset widens
+                // it) through the current wake. A corrected window that abandons this range has no
+                // data to stage from, so the editor confirms the move instead of silently creating
+                // a phantom night.
+                let coverageLo = min(edit.detectedStartTs, edit.bedTs)
                 SleepTimeEditor(bedTs: edit.bedTs, wakeTs: edit.wakeTs,
+                                coverage: coverageLo...max(edit.wakeTs, coverageLo + 1),
                                 onSave: { newBedTs, newWakeTs in
                     await repo.editSleepTimes(detectedStartTs: edit.detectedStartTs, oldEndTs: edit.wakeTs,
                                               storedStagesJSON: edit.stagesJSON,
@@ -331,7 +338,10 @@ struct SleepView: View {
         // session's date/times with an honest placeholder in the chart slot — never the
         // latest night silently rendered under a navigated label. (#160)
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
-            if nightOffset == 0 {
+            // #940: when the NEWEST day failed to merge (model.isStubNight), offset 0 falls through
+            // to the same honest stage-less stub path the navigated browse uses, instead of drawing
+            // a zeroed stage card. History stays browsable and the edit pencil stays reachable.
+            if nightOffset == 0, !model.isStubNight {
                 nightNavHeader(trailing: model.night.spanLabel)
                 sleepWindowRow(model.night)
                 stageCard(model.night, intervals: model.intervals)
@@ -1198,11 +1208,29 @@ struct SleepView: View {
     /// so each full pass over repo.days / repo.sleeps runs once per data change rather than
     /// once per render. Returns nil when there is no usable latest night (renders empty state).
     private func buildModel() -> SleepModel? {
-        guard let night = latestNight else { return nil }
+        // #940: ONE un-mergeable newest day (e.g. an impossible hand-edit staged all-awake) must
+        // not blank the whole tab behind the first-run empty state; every older night is still in
+        // the DB. Degrade to the SAME honest stage-less stub the ◀/▶ browse shows for such a day,
+        // keeping the edit/delete affordances reachable so the user can fix the bad night. nil
+        // (the true empty state) only when there is genuinely no day to show.
+        let night: Night
+        let isStub: Bool
+        if let merged = latestNight {
+            night = merged
+            isStub = false
+        } else if let stubSession = SleepView.stubDaySession(dayBlocks(at: 0),
+                                                             habitualMidsleepSec: habitualMidsleepSec) {
+            night = Night(session: stubSession, stages: Stages(awake: 0, light: 0, deep: 0, rem: 0),
+                          sourceBlocks: dayBlocks(at: 0), habitualMidsleepSec: habitualMidsleepSec)
+            isStub = true
+        } else {
+            return nil
+        }
         return SleepModel(
             night: night,
             intervals: night.intervals,
             isPersistedHypnogram: (night.realSegments?.count ?? 0) >= 2,
+            isStubNight: isStub,
             performance: performanceSeries,
             efficiency: efficiencySeries,
             consistency: consistencySeries,
@@ -1258,18 +1286,6 @@ struct SleepView: View {
         return groups.keys.sorted(by: >).map { key in
             (groups[key] ?? []).sorted { $0.effectiveStartTs < $1.effectiveStartTs }
         }
-    }
-
-    /// The day's MAIN sleep block — the night people mean by "last night" — and the rest (naps). (#518)
-    /// A day can hold an overnight AND an afternoon nap (both end on the same calendar day, so both
-    /// bucket here). The pick is the SINGLE shared selector (`SleepStageTotals.mainNightIndex`) the
-    /// analytics rollup uses — the LEARNED-TIMING score (asleep span + alignment bonus), NOT a re-derived
-    /// overnight gate — so the hero, the edit affordance, the analytics total, and the Sleep tab ALL
-    /// resolve to the identical block (the whole point of #525/#547). Delegates to `mainNightSession`,
-    /// passing the LEARNED habitual midsleep (the same value the engine threaded into the daily total) so
-    /// a shift/late sleeper's hero and analytics total agree — not just at cold-start. (#547)
-    private func mainBlock(_ sessions: [CachedSleepSession]) -> CachedSleepSession? {
-        SleepView.mainNightSession(sessions, habitualMidsleepSec: habitualMidsleepSec)
     }
 
     /// The device's current UTC offset (seconds east), evaluated once per pick. Feeds the selector's
@@ -1476,8 +1492,19 @@ struct SleepView: View {
     /// stages. Using the main block (#518) keeps the stub header on the real night rather than a
     /// 1 AM→5 PM overnight+nap span. (#160, #170)
     private func sessionRow(at offset: Int) -> CachedSleepSession? {
-        let days = navDays
-        guard offset >= 0, offset < days.count, let main = mainBlock(days[offset]) else { return nil }
+        SleepView.stubDaySession(dayBlocks(at: offset), habitualMidsleepSec: habitualMidsleepSec)
+    }
+
+    /// The stage-less stub SESSION for a day whose blocks decode to no usable sleep: the MAIN
+    /// block's effective window (the same pick `sessionRow` always made), falling back to the day's
+    /// first block so a day with ANY stored block renders a header. Static and pure so the #940
+    /// no-blank rule is unit-testable without view internals (SleepPhantomNightFallbackTests): as
+    /// long as a day has a block, the tab has something honest to show and `buildModel` never
+    /// collapses the whole screen to the first-run empty state. nil only for an empty day.
+    static func stubDaySession(_ blocks: [CachedSleepSession],
+                               habitualMidsleepSec: Int? = nil) -> CachedSleepSession? {
+        guard let main = mainNightSession(blocks, habitualMidsleepSec: habitualMidsleepSec) ?? blocks.first
+        else { return nil }
         return CachedSleepSession(startTs: main.effectiveStartTs, endTs: main.endTs,
                                   efficiency: nil, restingHr: nil, avgHrv: nil, stagesJSON: nil)
     }
@@ -2025,6 +2052,12 @@ private struct SleepModel {
     /// True when `intervals` are the stager's persisted per-epoch segments (on-device
     /// APPROXIMATE staging), not the synthesized architecture.
     let isPersistedHypnogram: Bool
+    /// True when `night` is the stage-less STUB for a newest day that failed to merge (#940: e.g.
+    /// an impossible hand-edit staged all-awake). The hero then renders the honest no-stage-data
+    /// header for it, exactly as the navigated ◀/▶ stub path does, while the tiles / ledger /
+    /// trends (all full-history) stay up. It must NEVER blank the whole tab: every older night is
+    /// still in the DB and the edit/delete affordance must stay reachable to fix the bad night.
+    let isStubNight: Bool
 
     let performance: Metric
     let efficiency: Metric
@@ -2207,12 +2240,23 @@ private struct SleepTimeEditor: View {
     private let bedLabel: LocalizedStringKey
     private let wakeLabel: LocalizedStringKey
     private let deleteLabel: LocalizedStringKey
+    /// The night's RECORDED coverage (detected onset ... current wake, unix seconds) for the #940
+    /// guards: a time-only bed roll past the wake auto-decrements the date, and a corrected window
+    /// fully outside this range gets an explicit confirm instead of silent acceptance. nil for the
+    /// "Add a nap" sheet, whose window deliberately sits outside the night (only the future-bed
+    /// guard applies there).
+    private let coverage: ClosedRange<Int>?
 
     @Environment(\.dismiss) private var dismiss
     @State private var bed: Date
     @State private var wake: Date
     @State private var saving = false
     @State private var confirmingDelete = false
+    /// The bed value BEFORE the in-flight picker change, so the #940 auto-correct can tell a
+    /// time-only roll (same calendar day: rescue it) from a deliberate date change (respect it).
+    @State private var previousBed: Date
+    /// True while the #940 "no recorded data there" confirm is up; Save proceeds only on consent.
+    @State private var confirmingDisjoint = false
 
     /// `title`/`blurb`/`bedLabel`/`wakeLabel` default to the edit-an-existing-night wording; the
     /// "Add a nap" caller (#508) overrides them. The save logic + day-derived wake are identical either
@@ -2224,6 +2268,7 @@ private struct SleepTimeEditor: View {
          bedLabel: LocalizedStringKey = "Asleep",
          wakeLabel: LocalizedStringKey = "Woke",
          deleteLabel: LocalizedStringKey = "Delete this sleep",
+         coverage: ClosedRange<Int>? = nil,
          onSave: @escaping (Int, Int) async -> Void,
          onDelete: (() async -> Void)? = nil) {
         self.onSave = onSave
@@ -2231,7 +2276,12 @@ private struct SleepTimeEditor: View {
         self.title = title; self.blurb = blurb
         self.bedLabel = bedLabel; self.wakeLabel = wakeLabel
         self.deleteLabel = deleteLabel
-        _bed = State(initialValue: Date(timeIntervalSince1970: TimeInterval(bedTs)))
+        self.coverage = coverage
+        // A bed can never be seeded in the future (#940): the "Add a nap" anchor is wake+1h, which is
+        // ahead of the clock right after a morning sync; clamp so the picker opens inside its bound.
+        let seedBed = min(bedTs, Int(Date().timeIntervalSince1970))
+        _bed = State(initialValue: Date(timeIntervalSince1970: TimeInterval(seedBed)))
+        _previousBed = State(initialValue: Date(timeIntervalSince1970: TimeInterval(seedBed)))
         _wake = State(initialValue: Date(timeIntervalSince1970: TimeInterval(wakeTs)))
     }
 
@@ -2250,6 +2300,15 @@ private struct SleepTimeEditor: View {
             ?? bed.addingTimeInterval(8 * 3600)
     }
 
+    /// The single save funnel: both the direct Save and the #940 disjoint confirm land here.
+    private func commit(start: Int, end: Int) {
+        saving = true
+        Task {
+            await onSave(start, end)
+            dismiss()
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             Text(title).font(StrandFont.title2).foregroundStyle(StrandPalette.textPrimary)
@@ -2259,7 +2318,10 @@ private struct SleepTimeEditor: View {
 
             NoopCard(padding: NoopMetrics.cardPadding, tint: StrandPalette.restColor) {
                 VStack(alignment: .leading, spacing: 10) {
-                    DatePicker(bedLabel, selection: $bed,
+                    // Bed is bounded to the PAST (#940): a sleep can't start in the future, and an
+                    // unbounded picker let a cross-midnight time roll land the bed on the coming
+                    // evening, creating a future-dated night the tab couldn't render.
+                    DatePicker(bedLabel, selection: $bed, in: ...Date(),
                                displayedComponents: [.date, .hourAndMinute])
                         .datePickerStyle(.compact)
                         .font(StrandFont.body)
@@ -2295,10 +2357,17 @@ private struct SleepTimeEditor: View {
                     .disabled(saving)
                 Spacer()
                 Button(saving ? "Saving…" : "Save") {
-                    saving = true
-                    Task {
-                        await onSave(Int(bed.timeIntervalSince1970), Int(resolvedWake().timeIntervalSince1970))
-                        dismiss()
+                    // #940 guard 2: a corrected window that no longer touches the night's recorded
+                    // coverage has no data to stage from. Silently accepting it fabricated an
+                    // all-awake phantom night; ask first.
+                    let start = Int(bed.timeIntervalSince1970)
+                    let end = Int(resolvedWake().timeIntervalSince1970)
+                    if let coverage, SleepEditGuard.isDisjoint(
+                        newStart: start, newEnd: end,
+                        coverageStart: coverage.lowerBound, coverageEnd: coverage.upperBound) {
+                        confirmingDisjoint = true
+                    } else {
+                        commit(start: start, end: end)
                     }
                 }
                 .buttonStyle(.noopPrimary)
@@ -2308,6 +2377,28 @@ private struct SleepTimeEditor: View {
         .padding(NoopMetrics.screenPadding)
         .frame(minWidth: 360)
         .background(StrandPalette.surfaceOverlay)
+        // #940 guard 1: a time-only roll that lands the bed in the future, or at/after the night's
+        // wake, almost always means the PREVIOUS evening (23:00 "yesterday", not tonight). Snap the
+        // date back a day so the picker visibly shows the night the user meant. Pure rule + tests:
+        // SleepEditGuard.autoCorrectedBed (Android twin in com.noop.analytics).
+        .onChangeCompat(of: bed) { newBed in
+            let corrected = SleepEditGuard.autoCorrectedBed(
+                previousBed: previousBed, candidateBed: newBed,
+                originalWake: coverage.map { Date(timeIntervalSince1970: TimeInterval($0.upperBound)) },
+                now: Date())
+            previousBed = corrected
+            if corrected != newBed { bed = corrected }
+        }
+        // #940 guard 2's consent step. On-brand role-tagged .alert, same shape as the delete confirm.
+        .alert("Move this sleep?", isPresented: $confirmingDisjoint) {
+            Button("Cancel", role: .cancel) { }
+            Button("Move anyway") {
+                commit(start: Int(bed.timeIntervalSince1970),
+                       end: Int(resolvedWake().timeIntervalSince1970))
+            }
+        } message: {
+            Text("This moves the night to a time with no recorded data. Stages can't be derived there, so it may show as empty until data covers it.")
+        }
         // On-brand destructive confirm — the same role-tagged .alert DevicesView uses for "Remove this
         // device?", not a bare default. (#68 — Android parity: "Delete this sleep session?")
         .alert("Delete this sleep session?", isPresented: $confirmingDelete) {

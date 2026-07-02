@@ -949,24 +949,31 @@ final class Repository: ObservableObject {
     func editSleepTimes(detectedStartTs: Int, oldEndTs: Int, storedStagesJSON: String?,
                         newStartTs: Int, newEndTs: Int) async {
         guard let store = await ensureStore() else { return }
+        // #940 belt-and-braces: never persist a future-ending or inverted corrected window, whatever
+        // the UI sent. The editor's own guards (past-bounded bed picker + cross-midnight auto-correct
+        // + the disjoint confirm) should make this unreachable; it is the last line so no client
+        // misbehaviour can write a phantom night the display merge cannot render.
+        guard let window = SleepEditGuard.clampedEditWindow(
+            start: newStartTs, end: newEndTs, now: Int(Date().timeIntervalSince1970)) else { return }
+        let (safeStartTs, safeEndTs) = window
         // Re-derive stages from the raw streams for the corrected window; fall back to reshaping the
         // stored summary when the strap has no dense data there yet. The fallback fires for a genuine
         // imported night (no strap data at all) AND for the transient case where the user edits BEFORE
         // a sync has imported this window , the latter then self-heals on the next post-sync
         // `analyzeRecent` (see `selfHealEditedStages`), which re-derives the real stages once raw lands.
-        let stagesJSON = await restageFromRaw(start: newStartTs, end: newEndTs)
+        let stagesJSON = await restageFromRaw(start: safeStartTs, end: safeEndTs)
             ?? SleepWindowReclip.reclip(stagesJSON: storedStagesJSON, sessionStart: detectedStartTs,
-                                        oldEnd: oldEndTs, newStart: newStartTs, newEnd: newEndTs)
+                                        oldEnd: oldEndTs, newStart: safeStartTs, newEnd: safeEndTs)
         // Apply to the source that actually OWNS this block. Try the computed source first; only fall
         // back to the imported source when no computed row matched , so we never edit a coincidental
         // same-startTs row in the other namespace (which the old unconditional double-write could do).
         let computedChanged = (try? await store.applySleepEdit(
             deviceId: computedDeviceId, detectedStartTs: detectedStartTs,
-            newStartTs: newStartTs, newEndTs: newEndTs, stagesJSON: stagesJSON)) ?? 0
+            newStartTs: safeStartTs, newEndTs: safeEndTs, stagesJSON: stagesJSON)) ?? 0
         if computedChanged == 0 {
             _ = try? await store.applySleepEdit(
                 deviceId: deviceId, detectedStartTs: detectedStartTs,
-                newStartTs: newStartTs, newEndTs: newEndTs, stagesJSON: stagesJSON)
+                newStartTs: safeStartTs, newEndTs: safeEndTs, stagesJSON: stagesJSON)
         }
         await refresh()
     }
@@ -1032,15 +1039,21 @@ final class Repository: ObservableObject {
     /// NEVER folded into the night's main sleep (which would mislabel awake daytime as light sleep). Purely
     /// additive , `insertManualSleepSession` no-ops if a session already exists at that exact onset.
     func addManualNap(startTs: Int, endTs: Int) async {
-        guard let store = await ensureStore(), endTs > startTs else { return }
+        // #940 belt-and-braces (same rule as editSleepTimes): a manually-added session can't end in
+        // the future or invert; a future nap would otherwise own the tab's newest day as an
+        // all-awake phantom exactly like the bad edit did. The clamped end is used verbatim.
+        guard let store = await ensureStore(),
+              let window = SleepEditGuard.clampedEditWindow(
+                  start: startTs, end: endTs, now: Int(Date().timeIntervalSince1970)) else { return }
+        let (safeStartTs, safeEndTs) = window
         // Stage from raw over the chosen window; fall back to a single awake block when the strap has no
         // dense data there yet (the self-heal re-stages once raw arrives). A nap's efficiency is the asleep
         // fraction of the staged window; nil for the fallback (no real stages yet).
-        let stagesJSON = await restageFromRaw(start: startTs, end: endTs)
-            ?? AnalyticsEngine.encodeStages([StageSegment(start: startTs, end: endTs, stage: "wake")])
+        let stagesJSON = await restageFromRaw(start: safeStartTs, end: safeEndTs)
+            ?? AnalyticsEngine.encodeStages([StageSegment(start: safeStartTs, end: safeEndTs, stage: "wake")])
         let efficiency = sleepEfficiency(fromStagesJSON: stagesJSON)
         _ = try? await store.insertManualSleepSession(
-            deviceId: computedDeviceId, startTs: startTs, endTs: endTs,
+            deviceId: computedDeviceId, startTs: safeStartTs, endTs: safeEndTs,
             efficiency: efficiency, stagesJSON: stagesJSON)
         await refresh()
     }
