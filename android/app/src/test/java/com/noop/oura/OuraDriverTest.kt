@@ -2,6 +2,8 @@ package com.noop.oura
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -187,6 +189,121 @@ class OuraDriverTest {
         val stop = d.nextStep(OuraTransition.HistoryCursorAdvanced(cursor = 0x12345678L, moreData = false))
         assertTrue(stop.isEmpty())
         assertEquals(OuraDriverPhase.Streaming, d.phase)
+    }
+
+    // MARK: - Ring-time -> UTC anchor (s5.5)
+
+    /**
+     * Little-endian bytes of the RAW 0x42 wire value the decoder reads into [OuraTimeSync.epochMs]. The
+     * wire value is unix SECONDS (s6.11), despite the field's "epochMs" name (which reflects what
+     * OURA_PROTOCOL.md s6.11 claims, not what the driver now does with it), so tests build this from a
+     * seconds value. Byte-for-byte identical to the Swift OuraDriverTests `le8` helper.
+     */
+    private fun le8(v: Long): IntArray = IntArray(8) { ((v ushr (8 * it)) and 0xFFL).toInt() }
+
+    @Test
+    fun testNoAnchorBeforeAnyTimeSyncOrBeacon() {
+        val d = OuraDriver(ringGen = OuraRingGen.GEN3, authKey = key)
+        assertNull(d.unixSeconds(forRingTimestamp = rt))
+    }
+
+    @Test
+    fun testTimeSyncSetsAnchorAndConvertsPastAndFutureRingTimes() {
+        val d = OuraDriver(ringGen = OuraRingGen.GEN3, authKey = key)
+        val anchorEpochSeconds = 1_700_000_000L   // the wire's raw value (seconds, not ms)
+        val anchorRt = 10_000L
+        val payload = le8(anchorEpochSeconds) + intArrayOf(0x00)   // raw wire epoch (8B) + tz offset (0 half-hours)
+        val rec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = anchorRt, payload = payload)
+        val events = d.ingest(rec)
+        assertEquals(
+            listOf(
+                OuraEvent.TimeSyncEvent(
+                    OuraTimeSync(ringTimestamp = anchorRt, epochMs = anchorEpochSeconds, tzOffsetSeconds = 0),
+                ),
+            ),
+            events,
+        )
+
+        // Exactly at the anchor: the driver applies the x1000 seconds->ms correction internally, so
+        // unixSeconds recovers the ORIGINAL seconds value.
+        assertEquals(anchorEpochSeconds, d.unixSeconds(forRingTimestamp = anchorRt))
+        // 100 ticks (10s at the default 100ms/tick) BEFORE the anchor -> 10s earlier (a past/historical
+        // record, e.g. from a GetEvents history fetch).
+        assertEquals(anchorEpochSeconds - 10, d.unixSeconds(forRingTimestamp = anchorRt - 100))
+        // 100 ticks AFTER the anchor -> 10s later.
+        assertEquals(anchorEpochSeconds + 10, d.unixSeconds(forRingTimestamp = anchorRt + 100))
+    }
+
+    @Test
+    fun testRtcBeaconOnlyAnchorsWhenNoTimeSyncSeenYet() {
+        val d = OuraDriver(ringGen = OuraRingGen.GEN3, authKey = key)
+        val beaconRt = 5_000L
+        val beaconUnixSeconds = 1_700_000_500L
+        // 0x85 rtc_beacon_ind: unix_s u32 LE + trailer (payload just needs >= 4 bytes).
+        val beaconPayload = intArrayOf(
+            (beaconUnixSeconds and 0xFF).toInt(), ((beaconUnixSeconds shr 8) and 0xFF).toInt(),
+            ((beaconUnixSeconds shr 16) and 0xFF).toInt(), ((beaconUnixSeconds shr 24) and 0xFF).toInt(),
+        )
+        val beaconRec = OuraRecord(type = OuraEventTag.RTC_BEACON.raw, ringTimestamp = beaconRt, payload = beaconPayload)
+        d.ingest(beaconRec)
+        assertEquals(beaconUnixSeconds, d.unixSeconds(forRingTimestamp = beaconRt))
+
+        // A later, more precise 0x42 time-sync must override the coarser beacon anchor.
+        val syncEpochSeconds = 1_700_001_000L
+        val syncRt = 6_000L
+        val syncPayload = le8(syncEpochSeconds) + intArrayOf(0x00)
+        val syncRec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = syncRt, payload = syncPayload)
+        d.ingest(syncRec)
+        assertEquals(syncEpochSeconds, d.unixSeconds(forRingTimestamp = syncRt))
+
+        // A SECOND beacon after a time-sync anchor is already set must NOT override it (secondary only
+        // fills a gap, never displaces the primary source).
+        val laterBeaconRec = OuraRecord(
+            type = OuraEventTag.RTC_BEACON.raw, ringTimestamp = syncRt + 100, payload = beaconPayload,
+        )
+        d.ingest(laterBeaconRec)
+        assertEquals(
+            "a later RTC beacon must not displace an already-set time-sync anchor",
+            syncEpochSeconds, d.unixSeconds(forRingTimestamp = syncRt),
+        )
+    }
+
+    @Test
+    fun testStopClearsTheAnchor() {
+        val d = OuraDriver(ringGen = OuraRingGen.GEN3, authKey = key)
+        val payload = le8(1_700_000_000L) + intArrayOf(0x00)
+        val rec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = 1_000L, payload = payload)
+        d.ingest(rec)
+        assertNotNull(d.unixSeconds(forRingTimestamp = 1_000L))
+        d.stop()
+        assertNull("a stale anchor must not survive stop()/a new session", d.unixSeconds(forRingTimestamp = 1_000L))
+    }
+
+    /**
+     * Regression test for the crash-safety rule (s6.11): a full cursor=0 history dump can hit a 0x42
+     * record deep in the backlog with an implausible raw value that would overflow Long on the naive
+     * seconds->ms `* 1000` conversion. The plausibility gate must reject it WITHOUT crashing and WITHOUT
+     * setting a garbage anchor. Kotlin twin of Swift's testImplausibleTimeSyncNeverCrashesOrAnchors.
+     */
+    @Test
+    fun testImplausibleTimeSyncNeverCrashesOrAnchors() {
+        val d = OuraDriver(ringGen = OuraRingGen.GEN3, authKey = key)
+        val hugePayload = le8(Long.MAX_VALUE) + intArrayOf(0x00)   // the exact class of value that overflows the multiply
+        val hugeRec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = 1_000L, payload = hugePayload)
+        d.ingest(hugeRec)   // must not throw
+        assertNull("an implausible epoch must never become the anchor", d.unixSeconds(forRingTimestamp = 1_000L))
+
+        // A negative epoch (int64 sign bit set on a misaligned record) must be equally rejected.
+        val negativePayload = le8(-1L) + intArrayOf(0x00)
+        val negativeRec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = 2_000L, payload = negativePayload)
+        d.ingest(negativeRec)   // must not throw
+        assertNull(d.unixSeconds(forRingTimestamp = 2_000L))
+
+        // A GOOD time-sync arriving afterward must still anchor normally (the gate doesn't wedge the driver).
+        val goodPayload = le8(1_700_000_000L) + intArrayOf(0x00)
+        val goodRec = OuraRecord(type = OuraEventTag.TIME_SYNC.raw, ringTimestamp = 3_000L, payload = goodPayload)
+        d.ingest(goodRec)
+        assertEquals(1_700_000_000L, d.unixSeconds(forRingTimestamp = 3_000L))
     }
 
     // MARK: - ingest(record:) decoding
