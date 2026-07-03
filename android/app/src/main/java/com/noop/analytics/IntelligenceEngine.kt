@@ -7,6 +7,8 @@ import com.noop.data.WhoopRepository
 import com.noop.data.WorkoutRow
 import com.noop.protocol.DeviceFamily
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /*
@@ -34,6 +36,24 @@ import kotlinx.coroutines.withContext
  * caller (AppViewModel) lets the flow refresh the UI. All `ts` are unix SECONDS (Long).
  */
 object IntelligenceEngine {
+
+    /**
+     * Serialises [analyzeRecent] against itself. The pass is launched from four independent coroutines: the
+     * 15-min backstop loop and rescoreAfterEdit (both AppViewModel), the post-offload analyze
+     * (WhoopBleClient), plus the one-shot Effort rescore ([runEffortRescoreIfNeeded]). These can overlap:
+     * two parallel 21-night passes double the CPU/battery AND race the #899 self-heal, whose concurrent
+     * overlapping-session deletes can pick different survivors. This mirrors the intent of the Swift
+     * `computing` guard, but SERIALISES rather than coalesces on purpose: Android's callers pass
+     * heterogeneous windows , the Effort rescore uses maxDays=4000, not 21, and can overlap the *independent*
+     * BLE-offload analyze. A drop-guard would skip that full-history rescore while its unconditional flagSet
+     * marks it permanently done, and would re-run the holder's 21-day window in its place. withLock lets
+     * every caller run its OWN pass, queued and never parallel, so nothing is dropped and no window is
+     * silently lost. Suspending (not thread-blocking) and cancellation-cooperative, matching the callers'
+     * #125 CancellationException handling. No re-entrancy: nothing analyzeRecent calls re-enters it
+     * ([runEffortRescoreIfNeeded] delegates to analyzeRecent and does NOT take the lock itself, so the
+     * Mutex is acquired exactly once per Effort pass, never nested).
+     */
+    private val analyzeGate = Mutex()
 
     /**
      * Per-day owner resolution source (invariant I2 , a day's scores come from exactly ONE device).
@@ -185,20 +205,25 @@ object IntelligenceEngine {
         // byte-identical default path (no lines). Mirrors the Swift workoutsTraceActive wiring.
         workoutsTraceSink: ((String) -> Unit)? = null,
     ): List<Computed> = withContext(Dispatchers.Default) {
-        val (out, healed) = analyzeRecentOnCpu(repo, profile, maxDays, importedDeviceId, maxHROverride,
-            nowSeconds, ownerSource, manualStepCoefficient, persistStepsCalibration, baselineEpoch,
-            recoveryEpoch, diag, useExperimentalSleepV2, sleepTraceSink, recoveryTraceSink, stepsTraceSink,
-            universalSink, workoutsTraceSink)
-        if (healed == 0) return@withContext out
-        // #899 heal re-pass: the pass above deleted overlapping duplicate sleep sessions AFTER its days
-        // were scored, and the read-side dedup those days consumed had no bank-recency witness (the fresh
-        // detections weren't banked yet), so its survivor can differ from the heal's. ONE bounded re-pass
-        // re-scores the window against the cleaned store; its own heal then finds nothing (the duplicates
-        // are gone), so this can never loop. Mirrors the Swift pendingForcedRescore re-arm.
-        analyzeRecentOnCpu(repo, profile, maxDays, importedDeviceId, maxHROverride,
-            nowSeconds, ownerSource, manualStepCoefficient, persistStepsCalibration, baselineEpoch,
-            recoveryEpoch, diag, useExperimentalSleepV2, sleepTraceSink, recoveryTraceSink, stepsTraceSink,
-            universalSink, workoutsTraceSink).first
+        // Serialise the whole pass so overlapping callers never run two rescores in parallel (see
+        // [analyzeGate]). The heavy scoring already ran off the caller's thread via withContext above; the
+        // lock is held only for this engine's own passes, never across an unrelated suspension.
+        analyzeGate.withLock {
+            val (out, healed) = analyzeRecentOnCpu(repo, profile, maxDays, importedDeviceId, maxHROverride,
+                nowSeconds, ownerSource, manualStepCoefficient, persistStepsCalibration, baselineEpoch,
+                recoveryEpoch, diag, useExperimentalSleepV2, sleepTraceSink, recoveryTraceSink, stepsTraceSink,
+                universalSink, workoutsTraceSink)
+            if (healed == 0) out
+            // #899 heal re-pass: the pass above deleted overlapping duplicate sleep sessions AFTER its days
+            // were scored, and the read-side dedup those days consumed had no bank-recency witness (the fresh
+            // detections weren't banked yet), so its survivor can differ from the heal's. ONE bounded re-pass
+            // re-scores the window against the cleaned store; its own heal then finds nothing (the duplicates
+            // are gone), so this can never loop. Mirrors the Swift pendingForcedRescore re-arm.
+            else analyzeRecentOnCpu(repo, profile, maxDays, importedDeviceId, maxHROverride,
+                nowSeconds, ownerSource, manualStepCoefficient, persistStepsCalibration, baselineEpoch,
+                recoveryEpoch, diag, useExperimentalSleepV2, sleepTraceSink, recoveryTraceSink, stepsTraceSink,
+                universalSink, workoutsTraceSink).first
+        }
     }
 
     /** History span for the one-shot Effort rescore , large enough to cover any real wear history,

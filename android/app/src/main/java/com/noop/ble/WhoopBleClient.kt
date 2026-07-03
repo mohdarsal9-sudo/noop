@@ -507,10 +507,12 @@ class WhoopBleClient(
         /** Proceed to service discovery even if onMtuChanged never fires (some stacks ignore
          *  requestMtu); keeps connect from stalling behind the MTU exchange. */
         private const val MTU_FALLBACK_MS = 1_500L
-        /** Bonded-handshake watchdog (#50): if no genuine bond lands within this of service discovery
-         *  starting, bounce the link rather than sit forever in "finishing secure handshake" (OnePlus
-         *  Nord 2 wedged the post-discovery bond/CCCD phase, which had no timeout). 7s comfortably
-         *  spans the MTU exchange → discovery → CCCD drain → confirmed bond write on a healthy link. */
+        /** BASE bonded-handshake watchdog window (#50): if no genuine bond lands within this of service
+         *  discovery starting, bounce the link rather than sit forever in "finishing secure handshake"
+         *  (OnePlus Nord 2 wedged the post-discovery bond/CCCD phase, which had no timeout). 7s comfortably
+         *  spans the MTU exchange → discovery → CCCD drain → confirmed bond write on a healthy link. #971:
+         *  this is now just the FIRST window — [bondWatchdogBackoff] escalates it per consecutive bounce so
+         *  a slower-but-healthy WHOOP 4.0 handshake gets more time before being bounced again. */
         private const val BOND_WATCHDOG_MS = 7_000L
         /** OnePlus-only settle delay before the FIRST CCCD descriptor write after service discovery
          *  (#50). The OnePlus Nord 2 GATT stack needs a beat to settle post-discovery; writing the first
@@ -531,6 +533,11 @@ class WhoopBleClient(
          *  CoreBluetooth's `CBError.connectionTimeout` that the iOS #617 bond-loop detector keys on. The
          *  stack's `GATT_CONN_TIMEOUT` (HCI 0x08). Pinned as a raw value (no public BluetoothGatt const). */
         private const val GATT_CONN_TIMEOUT = 0x08               // GATT_CONN_TIMEOUT (HCI link-supervision timeout)
+        /** GATT disconnect `status` when the LOCAL host tears the link down — what the stack reports for our
+         *  own `gatt.disconnect()`, including the #50/#971 bond-watchdog bounce. 22 / 0x16
+         *  (GATT_CONN_TERMINATE_LOCAL_HOST). Distinct from [GATT_CONN_TIMEOUT] (0x08, the strap/link timing
+         *  out): a bounce we initiated must NOT be mistaken for the #617 loop's remote timeout. */
+        private const val GATT_CONN_TERMINATE_LOCAL_HOST = 0x16  // GATT_CONN_TERMINATE_LOCAL_HOST (local host ended it)
         /** Consecutive bond refusals on the pinned strap before handing the pin off to a different,
          *  live-bonding strap (#52). 3 (not 1): a single "insufficient" can be a transient just-works
          *  race; three in a row on the pin while ANOTHER strap bonds fine is an unrecoverable stale pin.
@@ -1285,6 +1292,13 @@ class WhoopBleClient(
      *  looping silently. Reset on a user-initiated disconnect; the streak is otherwise broken naturally by
      *  any healthy (non-quick-timeout) disconnect. Twin of macOS BLEManager.postBondLoop. */
     private val postBondLoop = PostBondTimeoutLoopDetector()
+    /** #971 bond-handshake watchdog pacer: escalates the #50 watchdog window per consecutive bounce (so a
+     *  slow-but-healthy WHOOP 4.0 bond gets more time) and, after a capped number of bounces, stops
+     *  bouncing and hands off to the re-pair guide + auto-reconnect pause. Distinct from [postBondLoop]:
+     *  that one fires when a GENUINE bond drops ~1s later (status 0x08); this one fires when the handshake
+     *  never LANDS inside its window and our own bounce reports status 0x16. Reset on a genuine bond or a
+     *  user-initiated connect/disconnect. Android-only (the bond watchdog has no iOS twin). */
+    private val bondWatchdogBackoff = BondWatchdogBackoff(baseWindowMs = BOND_WATCHDOG_MS)
     /** Monotonic per-connection token, bumped on every connect. The #711 bond-loop stabilization check
      *  captures it and clears the re-pair guide only if it is UNCHANGED when the check fires, i.e. the SAME
      *  continuous connection survived (a reconnect/loop cycle bumps it, so the device address staying equal
@@ -1595,6 +1609,8 @@ class WhoopBleClient(
         postBondLoop.reset()
         // #747/#750: a clean teardown clears the bond-refusal give-up + un-pauses auto-reconnect.
         bondGiveUp.reset()
+        // #971: a clean teardown also clears the bond-watchdog bounce streak (fresh escalation next time).
+        bondWatchdogBackoff.reset()
         autoReconnectPausedForBondLoop = false
         bondLoopPausedAtMs = null
         // #711: a user-initiated teardown resolves the re-pair guide (no longer looping).
@@ -2439,8 +2455,10 @@ class WhoopBleClient(
      *  keep-alive) but the post-discovery bond/CCCD handshake had none — so a WHOOP 4.0 that wedges
      *  in "finishing secure handshake" (OnePlus Nord 2, #50) never bounced, and keep-alive recovery
      *  bails before [didBond]. This bonded-INDEPENDENT watchdog bounces the link if no genuine bond
-     *  lands within [BOND_WATCHDOG_MS], mirroring the MTU fallback. Armed when service discovery
-     *  starts; cancelled on bond and in reset/teardown. */
+     *  lands within its window, mirroring the MTU fallback. #971: the window ESCALATES per consecutive
+     *  bounce ([bondWatchdogBackoff]) so a slow-but-healthy bond gets more time, and after a capped number
+     *  of bounces we stop bouncing (see [onBondWatchdog]). Armed when service discovery starts; cancelled
+     *  on bond and in reset/teardown. */
     private val bondWatchdogRunnable = Runnable { onBondWatchdog() }
 
     @SuppressLint("MissingPermission")
@@ -2448,13 +2466,42 @@ class WhoopBleClient(
         // Already bonded (or torn down) — nothing wedged; the cancel sites normally beat us here, but
         // a late post on a binder-pool thread could still fire, so re-check before bouncing.
         if (didBond || gatt == null) return
-        log("Bond handshake stuck for ${BOND_WATCHDOG_MS / 1000}s — bouncing link to retry (#50)")
-        // Make the auto-reconnect fire (this is an involuntary bounce, not a user disconnect), then
-        // drop the link. gatt.disconnect() throwing on a dead binder (#314) must not crash from a
-        // timer — fall through to a clean teardown if it does (mirrors the keep-alive bounce).
+        // #971: count this bounce. If it crosses the cap, the handshake is genuinely stuck (a slow-but-
+        // healthy bond would have landed inside one of the escalating windows by now), so STOP bouncing:
+        // a WHOOP 4.0 that connects but never finishes the bond just loops forever otherwise (bond → 7s →
+        // our own gatt.disconnect() reports status 0x16 → reconnect → bond → 7s …, and STATE_CONNECTED
+        // zeroes the reconnect backoff every cycle so nothing ever backs off). Instead surface the SAME
+        // re-pair guide the stale-bond / #617 paths show and PAUSE auto-reconnect (reusing the #747/#844
+        // machinery [handleDisconnect] already honours) so the battery stops draining. A user Connect or a
+        // genuine bond re-arms it via [bondWatchdogBackoff].reset().
+        val gaveUp = bondWatchdogBackoff.recordBounce()
         intentionalDisconnect = false
+        if (gaveUp) {
+            log("Bond handshake never completed after ${bondWatchdogBackoff.consecutiveBounces} escalating tries — pausing auto-reconnect and surfacing the re-pair guide (#971)")
+            autoReconnectPausedForBondLoop = true
+            bondLoopPausedAtMs = System.currentTimeMillis()   // the #78 hole-4 salvage probe covers this pause too
+            if (_state.value.reconnectGuide == null) {
+                _state.update { it.copy(
+                    reconnectGuide = """
+                    Your strap connects but never finishes pairing with NOOP. This is almost always a stale Bluetooth pairing, usually after a WHOOP firmware update, or the official WHOOP app holding the strap. NOOP works fine once it's re-paired:
+
+                    1. Quit the official WHOOP app (or turn off Bluetooth on that phone).
+                    2. Open Settings → Bluetooth, find your WHOOP, and Forget / Unpair it.
+                    3. Tap the band repeatedly until its LEDs flash blue (pairing mode).
+                    4. Come back here and tap Connect.
+                    """.trimIndent()
+                ) }
+            }
+        } else {
+            log("Bond handshake stuck for ${bondWatchdogBackoff.currentWindowMs() / 1000}s — bouncing link to retry (attempt ${bondWatchdogBackoff.consecutiveBounces}, #50/#971)")
+        }
+        // Drop the link either way: even on give-up we tear down the wedged GATT so it stops holding the
+        // radio. gatt.disconnect() throwing on a dead binder (#314) must not crash from a timer — fall
+        // through to a clean teardown if it does (mirrors the keep-alive bounce). When we gave up above,
+        // [handleDisconnect] takes its paused branch and schedules NO reconnect; otherwise it backoff-
+        // reconnects and [armBondWatchdog] arms the NEXT (wider) window from [bondWatchdogBackoff].
         try {
-            gatt?.disconnect()   // → handleDisconnect → reset() (cancels this) → backoff reconnect
+            gatt?.disconnect()   // → handleDisconnect → reset() (cancels this) → (paused | backoff reconnect)
         } catch (t: Throwable) {
             log("bond watchdog bounce: gatt.disconnect() threw ${t.javaClass.simpleName}; tearing down")
             teardownAfterGattFailure()
@@ -2463,7 +2510,10 @@ class WhoopBleClient(
 
     private fun armBondWatchdog() {
         handler.removeCallbacks(bondWatchdogRunnable)
-        handler.postDelayed(bondWatchdogRunnable, BOND_WATCHDOG_MS)
+        // #971: escalating window — base 7s on the first handshake, wider on each subsequent bounce, so a
+        // slow-but-healthy WHOOP 4.0 bond isn't bounced forever at a too-tight window. The 0-bounce window
+        // is exactly the historical BOND_WATCHDOG_MS, so the common first connect is unchanged.
+        handler.postDelayed(bondWatchdogRunnable, bondWatchdogBackoff.currentWindowMs())
     }
 
     private fun cancelBondWatchdog() {
@@ -2628,6 +2678,9 @@ class WhoopBleClient(
         bondRefusalStreak = 0
         // #747/#750: a genuine bond or a fresh user connect re-arms auto-reconnect and clears the give-up.
         bondGiveUp.reset()
+        // #971: a genuine bond or a fresh user connect also clears the bond-watchdog bounce streak, so the
+        // next slow handshake starts back at the tight base window and can escalate afresh.
+        bondWatchdogBackoff.reset()
         autoReconnectPausedForBondLoop = false
         bondLoopPausedAtMs = null
         if (_state.value.pairingHint != null) {
@@ -3066,11 +3119,15 @@ class WhoopBleClient(
                   // the whole app — the exact chain the redactPii bug escaped through. Wrap the whole
                   // body so a bad frame drops ONE frame and the link stays up. (log() is itself total.)
                   try {
-                    noteWhoop5R22Telemetry(frame, backfilling && isOffloadFrame(frame, connectedFamily))  // #174
+                    // Compute the offload-frame flag ONCE — it feeds both the R22 telemetry note and
+                    // handleFrame's replayedOffload gate, so evaluating it twice bounds-checked + indexed
+                    // every offloaded frame for nothing. (The Swift 5/MG inbound loop already hoists this.)
+                    val offloadFrame = backfilling && isOffloadFrame(frame, connectedFamily)
+                    noteWhoop5R22Telemetry(frame, offloadFrame)  // #174
                     // A frame replayed as part of the historical offload (type 47/48/… during a backfill)
                     // must not drive LIVE-only state (the charging pill). Mirrors iOS, where the offload
                     // path skips the live router entirely. (PR #568 reimpl)
-                    handleFrame(frame, replayedOffload = backfilling && isOffloadFrame(frame, connectedFamily))
+                    handleFrame(frame, replayedOffload = offloadFrame)
 
                     // Capture the strap's newest stored record from a GET_DATA_RANGE reply, feeding
                     // the liveness watchdog. The response command byte is family-dependent: @6 on
@@ -3695,6 +3752,19 @@ class WhoopBleClient(
      * the want is remembered and the post-bond branch arms it. Port of `BLEManager.reconcileRealtime`.
      */
     private fun reconcileRealtime() {
+        // Confine to the GATT looper (main), exactly like [drainWriteQueue]/[drainCccdQueue]. This does an
+        // order-sensitive check-then-set on [realtimeArmed] and is reachable from ViewModel callers
+        // (startRealtime / stopRealtime / setKeepStreamForData) as well as the main-looper keep-alive tick
+        // and post-bond arm. Every caller runs on Main today, so this is a no-op pass-through — but it makes
+        // the battery-critical stream toggle self-enforcing: a future off-main caller is deferred onto the
+        // looper instead of silently racing the keep-alive tick on [realtimeArmed]. iOS gets this for free
+        // via @MainActor isolation on BLEManager; Kotlin has no compile-time actor, so the confinement is
+        // enforced at runtime here. The deferred re-run re-derives `want` from the fresh flags, so it
+        // reconciles against the latest state.
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post { reconcileRealtime() }
+            return
+        }
         val want = screenWantsRealtime || continuousCaptureWantsNow()
         wantsRealtime = want   // the keep-alive + post-bond arm-on-connect read this derived value
         if (want == realtimeArmed) return                          // no edge — nothing to send
@@ -4701,7 +4771,11 @@ class WhoopBleClient(
             //    so the reconnect-churn count means the same thing on both platforms.
             if (wasConnected) connReconnectCount += 1
             if (testCentre.active(com.noop.testcentre.TestDomain.CONNECTION)) {
-                val reason = if (status == GATT_CONN_TIMEOUT) "connectionTimeout" else "status$status"
+                val reason = when (status) {
+                    GATT_CONN_TIMEOUT -> "connectionTimeout"
+                    GATT_CONN_TERMINATE_LOCAL_HOST -> "localTerminate"   // our own bounce (e.g. #971 bond watchdog)
+                    else -> "status$status"
+                }
                 if (wasConnected) {
                     log("connect down (uptime ends)", com.noop.testcentre.TestDomain.CONNECTION)
                     log("reconnect n=$connReconnectCount reason=$reason", com.noop.testcentre.TestDomain.CONNECTION)
